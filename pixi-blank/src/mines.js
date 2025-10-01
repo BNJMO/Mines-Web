@@ -50,6 +50,7 @@ export async function createMinesGame(mount, opts = {}) {
 
   // Game state
   const board = new Container();
+  board.sortableChildren = true;
   const ui = new Container();
   app.stage.addChild(board, ui);
 
@@ -70,6 +71,22 @@ export async function createMinesGame(mount, opts = {}) {
   const statusText = label(`Safe picks: 0 / ${totalSafe}`, 14, 0xbfc7d5);
   ui.addChild(titleText, statusText);
 
+  const animatedTiles = new Set();
+
+  app.ticker.add((delta) => {
+    if (!animatedTiles.size) return;
+    const dt = Math.min(0.064, delta / 60);
+    animatedTiles.forEach((tile) => {
+      if (!tile._content) {
+        animatedTiles.delete(tile);
+        return;
+      }
+      if (!updateTileAnimation(tile, dt)) {
+        animatedTiles.delete(tile);
+      }
+    });
+  });
+
   function label(text, size, color) {
     return new Text({
       text,
@@ -86,10 +103,6 @@ export async function createMinesGame(mount, opts = {}) {
   function createTile(row, col, size) {
     const r = Math.min(18, size * 0.18); // rounded radius
     const pad = Math.max(7, Math.floor(size * 0.08)); // inset padding
-
-    // Fake shadow under the tile (no extra packages needed)
-    const shadow = new Graphics().roundRect(2, 3, size, size, r).fill(0x000000);
-    shadow.alpha = 0.28;
 
     // Base tile
     const card = new Graphics()
@@ -115,10 +128,15 @@ export async function createMinesGame(mount, opts = {}) {
     txt.anchor.set(0.5);
     txt.position.set(size / 2, size / 2);
     txt.visible = false;
+    txt.alpha = 0;
+
+    const content = new Container();
+    content.pivot.set(size / 2, size / 2);
+    content.position.set(size / 2, size / 2);
+    content.addChild(card, inset, txt);
 
     const t = new Container();
-    //t.addChild(shadow, card, inset, txt);
-    t.addChild(card, inset, txt);
+    t.addChild(content);
     t.eventMode = "static";
     t.cursor = "pointer";
     t.row = row;
@@ -126,20 +144,33 @@ export async function createMinesGame(mount, opts = {}) {
     t.isMine = false;
     t.revealed = false;
     t._card = card;
+    t._content = content;
     t._inset = inset;
     t._txt = txt;
     t._tileSize = size;
     t._tileRadius = r;
     t._tilePad = pad;
+    t._hover = { value: 0, target: 0 };
+    t._flip = {
+      value: 0,
+      duration: 0.45,
+      active: false,
+      face: null,
+      halfApplied: false,
+    };
 
     // Hover: gently lift the inner panel
     t.on("pointerover", () => {
-      if (!gameOver && !waitingForChoice && !t.revealed && selectedTile !== t)
+      if (!gameOver && !waitingForChoice && !t.revealed && selectedTile !== t) {
         inset.tint = PALETTE.hoverTint;
+        setTileHover(t, true);
+      }
     });
     t.on("pointerout", () => {
-      if (!waitingForChoice && !t.revealed && selectedTile !== t)
+      if (!waitingForChoice && !t.revealed && selectedTile !== t) {
         inset.tint = 0xffffff;
+        setTileHover(t, false);
+      }
     });
 
     t.on("pointertap", () => {
@@ -158,25 +189,9 @@ export async function createMinesGame(mount, opts = {}) {
       }),
     ];
 
-    return t;
-  }
+    updateTileTransforms(t);
 
-  function flipColor(card, inner, c1, c2, /*textColor*/ _) {
-    card
-      .clear()
-      .roundRect(0, 0, card.width, card.height, Math.min(16, card.width * 0.2))
-      .fill(c1)
-      .stroke({ color: 0x1f2937, width: 2 });
-    inner
-      .clear()
-      .roundRect(
-        6,
-        6,
-        card.width - 12,
-        card.height - 12,
-        Math.min(10, card.width * 0.15)
-      )
-      .fill(c2);
+    return t;
   }
 
   function flipFace(g, w, h, r, color, stroke = true) {
@@ -190,29 +205,155 @@ export async function createMinesGame(mount, opts = {}) {
       .fill(color);
   }
 
+  function scheduleTileAnimation(tile) {
+    animatedTiles.add(tile);
+  }
+
+  function setTileHover(tile, active) {
+    if (!tile) return;
+    if (tile.revealed && active) return;
+    const target = active ? 1 : 0;
+    if (!tile._hover) tile._hover = { value: 0, target };
+    if (tile._hover.target === target) return;
+    tile._hover.target = target;
+    scheduleTileAnimation(tile);
+  }
+
+  function startTileFlip(tile, face) {
+    if (!tile._flip) {
+      tile._flip = {
+        value: 0,
+        duration: 0.45,
+        active: false,
+        face: null,
+        halfApplied: false,
+      };
+    }
+    tile._flip.value = 0;
+    tile._flip.active = true;
+    tile._flip.face = face;
+    tile._flip.halfApplied = false;
+    scheduleTileAnimation(tile);
+  }
+
+  function applyTileFace(tile, face) {
+    if (!face) return;
+    const { _card: card, _inset: inset, _tileSize: size, _tileRadius: r, _tilePad: pad } = tile;
+    flipFace(card, size, size, r, face.cardColor);
+    flipInset(inset, size, size, r, pad, face.insetColor);
+    if (tile._txt) {
+      tile._txt.visible = true;
+      tile._txt.alpha = 0;
+    }
+  }
+
+  function updateTileAnimation(tile, dt) {
+    let animating = false;
+    const hover = tile._hover;
+    if (hover) {
+      const diff = hover.target - hover.value;
+      if (Math.abs(diff) > 0.001) {
+        const speed = 6;
+        hover.value += diff * Math.min(1, dt * speed);
+        if (Math.abs(hover.target - hover.value) < 0.001) {
+          hover.value = hover.target;
+        }
+        animating = true;
+      } else {
+        hover.value = hover.target;
+      }
+    }
+
+    const flip = tile._flip;
+    if (flip) {
+      if (flip.active) {
+        const step = dt / Math.max(0.001, flip.duration);
+        flip.value = Math.min(1, flip.value + step);
+        if (!flip.halfApplied && flip.value >= 0.5) {
+          flip.halfApplied = true;
+          applyTileFace(tile, flip.face);
+        }
+        if (flip.value >= 1) {
+          flip.value = 1;
+          flip.active = false;
+        }
+        animating = true;
+      } else if (flip.value > 0 && flip.value < 1) {
+        // settle scale towards the resting state
+        flip.value = Math.min(1, flip.value + dt * 2);
+        if (flip.value >= 1) flip.value = 1;
+        animating = flip.value < 1;
+      }
+    }
+
+    updateTileTransforms(tile);
+    return animating;
+  }
+
+  function updateTileTransforms(tile) {
+    const content = tile._content;
+    if (!content) return;
+
+    const hoverValue = tile._hover?.value ?? 0;
+    const flipValue = tile._flip?.value ?? 0;
+    const hoverLift = hoverValue * Math.min(10, tile._tileSize * 0.12);
+    const baseScale = 1 + hoverValue * 0.05;
+    const tilt = hoverValue * 0.12;
+
+    if (typeof tile._baseX === "number") tile.x = tile._baseX;
+    if (typeof tile._baseY === "number") tile.y = tile._baseY - hoverLift;
+
+    const flipScale =
+      flipValue <= 0.5
+        ? 1 - flipValue * 2
+        : (flipValue - 0.5) * 2;
+    const clampedScale = Math.max(0.0001, flipScale);
+    const perspective = Math.sin(flipValue * Math.PI) * 0.18;
+    const direction = flipValue < 0.5 ? 1 : -1;
+
+    content.scale.x = clampedScale * baseScale;
+    content.scale.y = baseScale;
+    content.skew.x = -tilt * 0.3;
+    content.skew.y = direction * perspective;
+    content.position.set(
+      tile._tileSize / 2,
+      tile._tileSize / 2 - hoverLift * 0.25
+    );
+
+    if (tile._txt) {
+      const flipAlpha = flipValue >= 0.5 ? Math.min(1, (flipValue - 0.5) * 2) : 0;
+      tile._txt.alpha = flipAlpha;
+      tile._txt.visible = tile._txt.visible || flipAlpha > 0.001;
+    }
+
+    const flipWeight = tile._flip?.active ? 20 : 0;
+    const hoverWeight = hoverValue > 0.01 ? 10 : 0;
+    tile.zIndex = (tile._baseZ ?? 0) + hoverWeight + flipWeight;
+  }
+
   function revealTile(tile) {
-    const card = tile._card;
-    const inset = tile._inset;
     const txt = tile._txt;
-    const r = tile._tileRadius;
-    const pad = tile._tilePad;
-    const size = tile._tileSize;
     tile.revealed = true;
-    txt.visible = true;
+    tile.eventMode = "none";
+    setTileHover(tile, false);
+
+    const face = tile.isMine
+      ? { text: "💣", cardColor: PALETTE.bombA, insetColor: PALETTE.bombB }
+      : { text: "💎", cardColor: PALETTE.safeA, insetColor: PALETTE.safeB };
+
+    txt.text = face.text;
+    txt.visible = false;
+    txt.alpha = 0;
+
+    startTileFlip(tile, face);
 
     if (tile.isMine) {
-      txt.text = "💣";
-      flipFace(card, size, size, r, PALETTE.bombA);
-      flipInset(inset, size, size, r, pad, PALETTE.bombB);
       gameOver = true;
       revealAllMines();
       statusText.text = "BOOM! Tap reset.";
       statusText.style.fill = 0xffaaaa;
       onGameOver();
     } else {
-      txt.text = "💎";
-      flipFace(card, size, size, r, PALETTE.safeA);
-      flipInset(inset, size, size, r, pad, PALETTE.safeB);
       revealedSafe += 1;
       statusText.style.fill = 0xbfc7d5;
       statusText.text = `Safe picks: ${revealedSafe} / ${totalSafe}`;
@@ -230,6 +371,7 @@ export async function createMinesGame(mount, opts = {}) {
     clearSelection();
     board.removeChildren();
     tiles = [];
+    animatedTiles.clear();
     revealedSafe = 0;
     totalSafe = GRID * GRID - mines;
     statusText.text = `Safe picks: 0 / ${totalSafe}`;
@@ -244,6 +386,22 @@ export async function createMinesGame(mount, opts = {}) {
         const tile = createTile(r, c, tileSize);
         tile.x = startX + c * (tileSize + gap);
         tile.y = startY + r * (tileSize + gap);
+        tile._baseZ = r * GRID + c;
+        tile.zIndex = tile._baseZ;
+        tile._baseX = tile.x;
+        tile._baseY = tile.y;
+        tile._hover.value = 0;
+        tile._hover.target = 0;
+        tile._flip.value = 0;
+        tile._flip.active = false;
+        tile._flip.halfApplied = false;
+        tile._flip.face = null;
+        tile._content.scale.set(1, 1);
+        tile._content.skew.set(0, 0);
+        tile._content.position.set(tile._tileSize / 2, tile._tileSize / 2);
+        tile._txt.visible = false;
+        tile._txt.alpha = 0;
+        updateTileTransforms(tile);
         board.addChild(tile);
         tiles.push(tile);
       }
@@ -279,17 +437,17 @@ export async function createMinesGame(mount, opts = {}) {
     tiles.forEach((t) => {
       if (t.isMine && !t.revealed) {
         t.revealed = true;
-        const txt = t._txt;
-        const card = t._card;
-        const inset = t._inset;
-        const size = t._tileSize;
-        const r = t._tileRadius;
-        const pad = t._tilePad;
-        txt.visible = true;
-        txt.text = "💣";
-        // match the bomb look
-        flipFace(card, size, size, r, PALETTE.bombA);
-        flipInset(inset, size, size, r, pad, PALETTE.bombB);
+        t.eventMode = "none";
+        setTileHover(t, false);
+        const face = {
+          text: "💣",
+          cardColor: PALETTE.bombA,
+          insetColor: PALETTE.bombB,
+        };
+        t._txt.text = face.text;
+        t._txt.visible = false;
+        t._txt.alpha = 0;
+        startTileFlip(t, face);
       }
     });
   }
@@ -342,6 +500,7 @@ export async function createMinesGame(mount, opts = {}) {
     try {
       ro.disconnect();
     } catch {}
+    animatedTiles.clear();
     app.destroy(true);
     if (app.canvas?.parentNode === root) root.removeChild(app.canvas);
   }
@@ -358,6 +517,7 @@ export async function createMinesGame(mount, opts = {}) {
   function clearSelection() {
     if (selectedTile && !selectedTile.revealed) {
       selectedTile._inset.tint = 0xffffff;
+      setTileHover(selectedTile, false);
     }
     waitingForChoice = false;
     selectedTile = null;
