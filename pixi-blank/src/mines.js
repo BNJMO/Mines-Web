@@ -57,6 +57,8 @@ export async function createMinesGame(mount, opts = {}) {
   let gameOver = false;
   let revealedSafe = 0;
   let totalSafe = GRID * GRID - mines;
+  let waitingForChoice = false;
+  let selectedTile = null;
 
   // API callbacks
   const onWin = opts.onWin ?? (() => {});
@@ -123,18 +125,26 @@ export async function createMinesGame(mount, opts = {}) {
     t.col = col;
     t.isMine = false;
     t.revealed = false;
+    t._card = card;
+    t._inset = inset;
+    t._txt = txt;
+    t._tileSize = size;
+    t._tileRadius = r;
+    t._tilePad = pad;
 
     // Hover: gently lift the inner panel
     t.on("pointerover", () => {
-      if (!gameOver && !t.revealed) inset.tint = PALETTE.hoverTint;
+      if (!gameOver && !waitingForChoice && !t.revealed && selectedTile !== t)
+        inset.tint = PALETTE.hoverTint;
     });
     t.on("pointerout", () => {
-      if (!t.revealed) inset.tint = 0xffffff;
+      if (!waitingForChoice && !t.revealed && selectedTile !== t)
+        inset.tint = 0xffffff;
     });
 
     t.on("pointertap", () => {
-      if (gameOver || t.revealed) return;
-      revealTile(t, { card, inset, txt, r, pad, size });
+      if (gameOver || waitingForChoice || t.revealed) return;
+      enterWaitingState(t);
     });
 
     t.filters = [
@@ -180,8 +190,13 @@ export async function createMinesGame(mount, opts = {}) {
       .fill(color);
   }
 
-  function revealTile(tile, refs) {
-    const { card, inset, txt, r, pad, size } = refs;
+  function revealTile(tile) {
+    const card = tile._card;
+    const inset = tile._inset;
+    const txt = tile._txt;
+    const r = tile._tileRadius;
+    const pad = tile._tilePad;
+    const size = tile._tileSize;
     tile.revealed = true;
     txt.visible = true;
 
@@ -211,14 +226,8 @@ export async function createMinesGame(mount, opts = {}) {
     onChange(getState());
   }
 
-  function shuffleInPlace(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = (Math.random() * (i + 1)) | 0;
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  }
-
   function buildBoard() {
+    clearSelection();
     board.removeChildren();
     tiles = [];
     revealedSafe = 0;
@@ -239,11 +248,6 @@ export async function createMinesGame(mount, opts = {}) {
         tiles.push(tile);
       }
     }
-
-    const indices = [...Array(GRID * GRID).keys()];
-    shuffleInPlace(indices);
-    const mineSet = new Set(indices.slice(0, mines));
-    tiles.forEach((t, idx) => (t.isMine = mineSet.has(idx)));
   }
 
   function layoutSizes() {
@@ -275,27 +279,17 @@ export async function createMinesGame(mount, opts = {}) {
     tiles.forEach((t) => {
       if (t.isMine && !t.revealed) {
         t.revealed = true;
-        const txt = t.children[3];
-        const card = t.children[1];
-        const inset = t.children[2];
+        const txt = t._txt;
+        const card = t._card;
+        const inset = t._inset;
+        const size = t._tileSize;
+        const r = t._tileRadius;
+        const pad = t._tilePad;
         txt.visible = true;
         txt.text = "💣";
         // match the bomb look
-        flipFace(
-          card,
-          card.width,
-          card.height,
-          card.height * 0.18,
-          PALETTE.bombA
-        );
-        flipInset(
-          inset,
-          card.width,
-          card.height,
-          card.height * 0.18,
-          Math.max(7, Math.floor(card.width * 0.08)),
-          PALETTE.bombB
-        );
+        flipFace(card, size, size, r, PALETTE.bombA);
+        flipInset(inset, size, size, r, pad, PALETTE.bombB);
       }
     });
   }
@@ -321,6 +315,7 @@ export async function createMinesGame(mount, opts = {}) {
   // Public API for host integration
   function reset() {
     gameOver = false;
+    clearSelection();
     buildBoard();
     positionUI();
     centerBoard();
@@ -337,6 +332,10 @@ export async function createMinesGame(mount, opts = {}) {
       revealedSafe,
       totalSafe,
       gameOver,
+      waitingForChoice,
+      selectedTile: selectedTile
+        ? { row: selectedTile.row, col: selectedTile.col }
+        : null,
     };
   }
   function destroy() {
@@ -347,5 +346,48 @@ export async function createMinesGame(mount, opts = {}) {
     if (app.canvas?.parentNode === root) root.removeChild(app.canvas);
   }
 
-  return { app, reset, setMines, getState, destroy };
+  function enterWaitingState(tile) {
+    waitingForChoice = true;
+    selectedTile = tile;
+    tile._inset.tint = PALETTE.hoverTint;
+    statusText.text = "Awaiting card content...";
+    statusText.style.fill = 0xffe066;
+    onChange(getState());
+  }
+
+  function clearSelection() {
+    if (selectedTile && !selectedTile.revealed) {
+      selectedTile._inset.tint = 0xffffff;
+    }
+    waitingForChoice = false;
+    selectedTile = null;
+  }
+
+  function setSelectedCardIsDiamond() {
+    if (!waitingForChoice || !selectedTile || selectedTile.revealed) return;
+    selectedTile.isMine = false;
+    const tile = selectedTile;
+    waitingForChoice = false;
+    selectedTile = null;
+    revealTile(tile);
+  }
+
+  function SetSelectedCardIsBomb() {
+    if (!waitingForChoice || !selectedTile || selectedTile.revealed) return;
+    selectedTile.isMine = true;
+    const tile = selectedTile;
+    waitingForChoice = false;
+    selectedTile = null;
+    revealTile(tile);
+  }
+
+  return {
+    app,
+    reset,
+    setMines,
+    getState,
+    destroy,
+    setSelectedCardIsDiamond,
+    SetSelectedCardIsBomb,
+  };
 }
