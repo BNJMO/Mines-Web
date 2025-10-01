@@ -14,6 +14,19 @@ const PALETTE = {
   safeB: 0x103526,
 };
 
+function tween(app, { duration = 300, update, complete, ease = t => t }) {
+  const start = performance.now();
+  const step = () => {
+    const t = Math.min(1, (performance.now() - start) / duration);
+    update?.(ease(t));
+    if (t >= 1) {
+      app.ticker.remove(step);
+      complete?.();
+    }
+  };
+  app.ticker.add(step);
+}
+
 export async function createMinesGame(mount, opts = {}) {
   // Options
   const GRID = opts.grid ?? 5;
@@ -84,25 +97,18 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function createTile(row, col, size) {
-    const r = Math.min(18, size * 0.18); // rounded radius
-    const pad = Math.max(7, Math.floor(size * 0.08)); // inset padding
+    const r = Math.min(18, size * 0.18);
+    const pad = Math.max(7, Math.floor(size * 0.08));
 
-    // Fake shadow under the tile (no extra packages needed)
-    const shadow = new Graphics().roundRect(2, 3, size, size, r).fill(0x000000);
-    shadow.alpha = 0.28;
-
-    // Base tile
     const card = new Graphics()
       .roundRect(0, 0, size, size, r)
       .fill(PALETTE.tileBase)
       .stroke({ color: PALETTE.tileStroke, width: 2, alpha: 0.9 });
 
-    // Inset panel (gives “pressed” look)
     const inset = new Graphics()
       .roundRect(pad, pad, size - pad * 2, size - pad * 2, Math.max(8, r - 6))
       .fill(PALETTE.tileInset);
 
-    // Symbol (hidden until reveal)
     const txt = new Text({
       text: "",
       style: {
@@ -116,15 +122,24 @@ export async function createMinesGame(mount, opts = {}) {
     txt.position.set(size / 2, size / 2);
     txt.visible = false;
 
+    // Centered wrapper – flip happens here
+    const flipWrap = new Container();
+    flipWrap.addChild(card, inset, txt);
+    flipWrap.position.set(size / 2, size / 2); // place it at tile center
+    flipWrap.pivot.set(size / 2, size / 2); // rotate/scale around center
+
     const t = new Container();
-    //t.addChild(shadow, card, inset, txt);
-    t.addChild(card, inset, txt);
+    t.addChild(flipWrap);
+
     t.eventMode = "static";
     t.cursor = "pointer";
     t.row = row;
     t.col = col;
-    t.isMine = false;
     t.revealed = false;
+    t._animating = false;
+
+    // store refs for flip
+    t._wrap = flipWrap;
     t._card = card;
     t._inset = inset;
     t._txt = txt;
@@ -132,30 +147,28 @@ export async function createMinesGame(mount, opts = {}) {
     t._tileRadius = r;
     t._tilePad = pad;
 
-    // Hover: gently lift the inner panel
     t.on("pointerover", () => {
-      if (!gameOver && !waitingForChoice && !t.revealed && selectedTile !== t)
+      if (
+        !gameOver &&
+        !waitingForChoice &&
+        !t.revealed &&
+        !t._animating &&
+        selectedTile !== t
+      ) {
         inset.tint = PALETTE.hoverTint;
+      }
     });
     t.on("pointerout", () => {
       if (!waitingForChoice && !t.revealed && selectedTile !== t)
         inset.tint = 0xffffff;
     });
-
     t.on("pointertap", () => {
-      if (gameOver || waitingForChoice || t.revealed) return;
+      if (gameOver || waitingForChoice || t.revealed || t._animating) return;
       enterWaitingState(t);
     });
 
     t.filters = [
-      new DropShadowFilter({
-        blur: 4,
-        quality: 3,
-        distance: 2,
-        alpha: 0.35,
-        color: 0x000000,
-        rotation: Math.PI / 6,
-      }),
+      /* your DropShadowFilter as before */
     ];
 
     return t;
@@ -224,6 +237,81 @@ export async function createMinesGame(mount, opts = {}) {
       }
     }
     onChange(getState());
+  }
+
+  function revealTileWithFlip(tile, face /* "diamond" | "bomb" */) {
+    if (tile._animating || tile.revealed || gameOver) return;
+
+    const wrap = tile._wrap;
+    const card = tile._card;
+    const inset = tile._inset;
+    const txt = tile._txt;
+    const r = tile._tileRadius;
+    const pad = tile._tilePad;
+    const size = tile._tileSize;
+
+    tile._animating = true;
+
+    // Half 1: 1 -> 0
+    tween(app, {
+      duration: 200,
+      ease: (t) => 1 - Math.pow(1 - t, 0.2),
+      update: (t) => {
+        const s = 1 - t; // 1 -> 0
+        wrap.scale.x = Math.max(0.0001, s);
+        wrap.skew.y = (1 - s) * 0.25;
+      },
+      complete: () => {
+        // Mid-swap
+        txt.visible = true;
+        if (face === "bomb") {
+          txt.text = "💣";
+          flipFace(card, size, size, r, PALETTE.bombA);
+          flipInset(inset, size, size, r, pad, PALETTE.bombB);
+        } else {
+          txt.text = "💎";
+          flipFace(card, size, size, r, PALETTE.safeA);
+          flipInset(inset, size, size, r, pad, PALETTE.safeB);
+        }
+
+        // Half 2: 0 -> 1
+        tween(app, {
+          duration: 160,
+          ease: (t) => t * t * t,
+          update: (t2) => {
+            const s = Math.max(0.0001, t2);
+            wrap.scale.x = s;
+            wrap.skew.y = (1 - s) * 0.25;
+          },
+          complete: () => {
+            wrap.scale.x = 1;
+            wrap.skew.y = 0;
+            tile._animating = false;
+
+            // Finish logic after the flip
+            tile.revealed = true;
+            if (face === "bomb") {
+              gameOver = true;
+              statusText.text = "BOOM! Tap reset.";
+              statusText.style.fill = 0xffaaaa;
+              onGameOver();
+            } else {
+              revealedSafe += 1;
+              statusText.style.fill = 0xbfc7d5;
+              statusText.text = `Safe picks: ${revealedSafe} / ${totalSafe}`;
+              if (revealedSafe >= totalSafe) {
+                gameOver = true;
+                statusText.text = "You win! 🎉";
+                statusText.style.fill = 0xc7f9cc;
+                onWin();
+              }
+            }
+
+            onChange(getState());
+          },
+        });
+      },
+    });
   }
 
   function buildBoard() {
@@ -364,21 +452,31 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function setSelectedCardIsDiamond() {
-    if (!waitingForChoice || !selectedTile || selectedTile.revealed) return;
-    selectedTile.isMine = false;
-    const tile = selectedTile;
+    if (
+      !waitingForChoice ||
+      !selectedTile ||
+      selectedTile.revealed ||
+      selectedTile._animating
+    )
+      return;
     waitingForChoice = false;
+    const tile = selectedTile;
     selectedTile = null;
-    revealTile(tile);
+    revealTileWithFlip(tile, "diamond");
   }
 
   function SetSelectedCardIsBomb() {
-    if (!waitingForChoice || !selectedTile || selectedTile.revealed) return;
-    selectedTile.isMine = true;
-    const tile = selectedTile;
+    if (
+      !waitingForChoice ||
+      !selectedTile ||
+      selectedTile.revealed ||
+      selectedTile._animating
+    )
+      return;
     waitingForChoice = false;
+    const tile = selectedTile;
     selectedTile = null;
-    revealTile(tile);
+    revealTileWithFlip(tile, "bomb");
   }
 
   return {
