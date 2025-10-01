@@ -1,6 +1,7 @@
 // mines.js
 import { Application, Container, Graphics, Text } from "pixi.js";
 import { DropShadowFilter } from "@pixi/filter-drop-shadow";
+import Ease from "./ease.js";
 
 const PALETTE = {
   appBg: 0x0b1a22, // page/canvas background
@@ -14,7 +15,7 @@ const PALETTE = {
   safeB: 0x103526,
 };
 
-function tween(app, { duration = 300, update, complete, ease = t => t }) {
+function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
   const start = performance.now();
   const step = () => {
     const t = Math.min(1, (performance.now() - start) / duration);
@@ -35,6 +36,21 @@ export async function createMinesGame(mount, opts = {}) {
   const fontFamily =
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
   const initialSize = Math.max(1, opts.size ?? 400); // default 400
+
+  // Animation Options
+  /* Hover */
+  const hoverEnterDuration = 120;
+  const hoverExitDuration = 200;
+
+  /* Wiggle */
+  const wiggleDuration = 900;
+  const wiggleTimes = 10;
+  const wiggleIntensity = 0.05;
+  const wiggleScale = 0.02;
+
+  /* Flip */
+  const flipDuration = 380;
+  const flipEaseFunction = "easeInOutSine";
 
   // Resolve mount element
   const root =
@@ -96,6 +112,99 @@ export async function createMinesGame(mount, opts = {}) {
     });
   }
 
+  function hoverTile(t, on) {
+    // Don’t hover during flips or while a different selection is pending
+    if (t._animating) return;
+
+    // Targets (very subtle)
+    const startScale = t._wrap.scale.x; // current (should be 1 when idle)
+    const endScale = on ? 1.03 : 1.0; // tiny pop
+    const startSkew = t._wrap.skew.y;
+    const endSkew = on ? 0.06 : 0.0; // slight perspective hint
+    const startY = t.y;
+    const endY = on ? t._baseY - 3 : t._baseY; // lift 3 px
+    const sh = t._shadow;
+    const sDist0 = sh.distance,
+      sDist1 = on ? 4 : 2; // a bit longer shadow
+    const sAlpha0 = sh.alpha,
+      sAlpha1 = on ? 0.5 : 0.35;
+
+    // Kill previous hover tween by marking a token
+    const token = Symbol("hover");
+    t._hoverToken = token;
+
+    tween(app, {
+      duration: on ? hoverEnterDuration : hoverExitDuration,
+      ease: (x) => (on ? 1 - Math.pow(1 - x, 3) : x * x * x), // ease-out / ease-in
+      update: (p) => {
+        if (t._hoverToken !== token) return; // superseded
+        // Lerp
+        t._wrap.scale.x = t._wrap.scale.y =
+          startScale + (endScale - startScale) * p;
+        t._wrap.skew.y = startSkew + (endSkew - startSkew) * p;
+        t.y = startY + (endY - startY) * p;
+        sh.distance = sDist0 + (sDist1 - sDist0) * p;
+        sh.alpha = sAlpha0 + (sAlpha1 - sAlpha0) * p;
+      },
+      complete: () => {
+        if (t._hoverToken !== token) return;
+        t._wrap.scale.set(endScale);
+        t._wrap.skew.y = endSkew;
+        t.y = endY;
+        sh.distance = sDist1;
+        sh.alpha = sAlpha1;
+      },
+    });
+  }
+
+  function wiggleTile(t) {
+    if (t._animating) return;
+
+    const wrap = t._wrap;
+    const baseSkew = wrap.skew.y;
+    const baseScale = wrap.scale.x;
+
+    t._animating = true;
+
+    const token = Symbol("wiggle");
+    t._wiggleToken = token;
+
+    tween(app, {
+      duration: wiggleDuration, // total duration
+      ease: (p) => p,
+      update: (p) => {
+        if (t._wiggleToken !== token) return;
+        // oscillate skew around base
+        const wiggle = Math.sin(p * Math.PI * wiggleTimes) * wiggleIntensity; // 2 cycles
+        wrap.skew.y = baseSkew + wiggle;
+
+        // subtle squash/stretch
+        const scaleWiggle =
+          1 + Math.sin(p * Math.PI * wiggleTimes) * wiggleScale;
+        wrap.scale.x = wrap.scale.y = baseScale * scaleWiggle;
+      },
+      complete: () => {
+        if (t._wiggleToken !== token) return;
+        // restore to base tilt (don’t flatten!)
+        wrap.skew.y = baseSkew;
+        wrap.scale.x = wrap.scale.y = baseScale;
+        t._animating = false;
+      },
+    });
+  }
+
+  function stopHover(t) {
+    // invalidate any in-flight hover tween
+    t._hoverToken = Symbol("hover-cancelled");
+  }
+
+  function stopWiggle(t) {
+    // invalidate any in-flight wiggle tween and clear animating
+    t._wiggleToken = Symbol("wiggle-cancelled");
+    t._animating = false; // allow reveal to start immediately
+    // Do NOT reset skew/scale/y; we want to keep the current pose
+  }
+
   function createTile(row, col, size) {
     const r = Math.min(18, size * 0.18);
     const pad = Math.max(7, Math.floor(size * 0.08));
@@ -138,7 +247,7 @@ export async function createMinesGame(mount, opts = {}) {
     t.revealed = false;
     t._animating = false;
 
-    // store refs for flip
+    // store refs
     t._wrap = flipWrap;
     t._card = card;
     t._inset = inset;
@@ -147,6 +256,19 @@ export async function createMinesGame(mount, opts = {}) {
     t._tileRadius = r;
     t._tilePad = pad;
 
+    // Shadow (we’ll strengthen it on hover)
+    const shadow = new DropShadowFilter({
+      blur: 4,
+      quality: 3,
+      distance: 2,
+      alpha: 0.35,
+      color: 0x000000,
+      rotation: Math.PI / 6,
+    });
+    t.filters = [shadow];
+    t._shadow = shadow;
+
+    // HOVER: subtle lift (guard against waiting/animating/revealed)
     t.on("pointerover", () => {
       if (
         !gameOver &&
@@ -155,41 +277,22 @@ export async function createMinesGame(mount, opts = {}) {
         !t._animating &&
         selectedTile !== t
       ) {
-        inset.tint = PALETTE.hoverTint;
+        hoverTile(t, true);
       }
     });
     t.on("pointerout", () => {
-      if (!waitingForChoice && !t.revealed && selectedTile !== t)
-        inset.tint = 0xffffff;
+      if (!t.revealed && !t._animating && selectedTile !== t) {
+        hoverTile(t, false);
+      }
     });
+
     t.on("pointertap", () => {
       if (gameOver || waitingForChoice || t.revealed || t._animating) return;
+      hoverTile(t, false); // ensure it settles before selection
       enterWaitingState(t);
     });
 
-    t.filters = [
-      /* your DropShadowFilter as before */
-    ];
-
     return t;
-  }
-
-  function flipColor(card, inner, c1, c2, /*textColor*/ _) {
-    card
-      .clear()
-      .roundRect(0, 0, card.width, card.height, Math.min(16, card.width * 0.2))
-      .fill(c1)
-      .stroke({ color: 0x1f2937, width: 2 });
-    inner
-      .clear()
-      .roundRect(
-        6,
-        6,
-        card.width - 12,
-        card.height - 12,
-        Math.min(10, card.width * 0.15)
-      )
-      .fill(c2);
   }
 
   function flipFace(g, w, h, r, color, stroke = true) {
@@ -203,43 +306,56 @@ export async function createMinesGame(mount, opts = {}) {
       .fill(color);
   }
 
-  function revealTile(tile) {
-    const card = tile._card;
-    const inset = tile._inset;
-    const txt = tile._txt;
-    const r = tile._tileRadius;
-    const pad = tile._tilePad;
-    const size = tile._tileSize;
-    tile.revealed = true;
-    txt.visible = true;
+  function easeFlip(t) {
+    switch (flipEaseFunction) {
+      case "easeInOutBack":
+        return Ease.easeInOutBack(t);
 
-    if (tile.isMine) {
-      txt.text = "💣";
-      flipFace(card, size, size, r, PALETTE.bombA);
-      flipInset(inset, size, size, r, pad, PALETTE.bombB);
-      gameOver = true;
-      revealAllMines();
-      statusText.text = "BOOM! Tap reset.";
-      statusText.style.fill = 0xffaaaa;
-      onGameOver();
-    } else {
-      txt.text = "💎";
-      flipFace(card, size, size, r, PALETTE.safeA);
-      flipInset(inset, size, size, r, pad, PALETTE.safeB);
-      revealedSafe += 1;
-      statusText.style.fill = 0xbfc7d5;
-      statusText.text = `Safe picks: ${revealedSafe} / ${totalSafe}`;
-      if (revealedSafe >= totalSafe) {
-        gameOver = true;
-        statusText.text = "You win! 🎉";
-        statusText.style.fill = 0xc7f9cc;
-        onWin();
-      }
+      case "easeInOutSine":
+        return Ease.easeInOutSine(t);
     }
-    onChange(getState());
+  }
+
+  function forceFlatPose(t) {
+    // Kill any in-flight hover/wiggle updates or completions.
+    t._hoverToken = Symbol("hover-kill");
+    t._wiggleToken = Symbol("wiggle-kill");
+
+    // Clamp BOTH the wrapper and the outer container.
+    const w = t._wrap;
+
+    const clampOnce = () => {
+      // Wrapper (where we apply flip/hover/wiggle transforms)
+      w.scale.set(1, 1);
+      w.skew.set(0, 0);
+      w.rotation = 0;
+
+      // Outer tile container (just in case)
+      t.scale?.set(1, 1);
+      t.skew?.set(0, 0);
+      t.rotation = 0;
+
+      // Vertical position back to baseline
+      t.y = t._baseY ?? t.y;
+
+      // Shadow back to idle
+      if (t._shadow) {
+        t._shadow.distance = 2;
+        t._shadow.alpha = 0.35;
+      }
+    };
+
+    // Clamp now…
+    clampOnce();
+    // …and clamp again next frames to beat any late tween ticks.
+    app.ticker.addOnce(clampOnce);
+    app.ticker.addOnce(clampOnce);
   }
 
   function revealTileWithFlip(tile, face /* "diamond" | "bomb" */) {
+    stopHover(tile);
+    stopWiggle(tile);
+
     if (tile._animating || tile.revealed || gameOver) return;
 
     const wrap = tile._wrap;
@@ -249,67 +365,94 @@ export async function createMinesGame(mount, opts = {}) {
     const r = tile._tileRadius;
     const pad = tile._tilePad;
     const size = tile._tileSize;
+    const baseY = tile._baseY ?? tile.y;
 
     tile._animating = true;
 
-    // Half 1: 1 -> 0
+    // start pose (likely slightly tilted & lifted)
+    const startScaleX = wrap.scale.x; // ~1.03 if hovered/selected
+    const startScaleY = wrap.scale.y; // same as X
+    const startSkewY = wrap.skew.y; // small tilt
+    const startY = tile.y;
+    const startShadowDist = tile._shadow.distance;
+    const startShadowAlpha = tile._shadow.alpha;
+
+    // direction for perspective bias (left/right)
+    const dir = tile._tiltDir ?? (startSkewY >= 0 ? +1 : -1);
+
+    let swapped = false;
+
+    // Single tween from 0..1 using cosine to sculpt width nicely
+
     tween(app, {
-      duration: 200,
-      ease: (t) => 1 - Math.pow(1 - t, 0.2),
+      duration: flipDuration, // overall flip time
+      ease: (t) => easeFlip(t),
       update: (t) => {
-        const s = 1 - t; // 1 -> 0
-        wrap.scale.x = Math.max(0.0001, s);
-        wrap.skew.y = (1 - s) * 0.25;
+        // width follows |cos(pi t)| to look like a rotating plane
+        // 1 → 0 → 1, never negative (we prevent culling)
+        const widthFactor = Math.max(0.0001, Math.abs(Math.cos(Math.PI * t)));
+
+        // subtle elevation: rises to mid, then settles
+        const elev = Math.sin(Math.PI * t); // 0 → 1 → 0
+        const liftY = -6 * elev; // lift up to -6px at mid
+        const popS = 1 + 0.06 * elev; // slight scale-up at mid
+
+        // perspective bias: small skew around mid, using the stored direction
+        // we smoothly remove the initial skew as we approach the edge,
+        // then add a tiny directional bias so it looks like the same flip direction
+        const biasSkew = dir * 0.22 * Math.sin(Math.PI * t); // peak at mid
+        const skewY = startSkewY * (1 - t) + biasSkew;
+
+        // apply transforms
+        wrap.scale.x = widthFactor * popS;
+        wrap.scale.y = startScaleY * popS;
+        wrap.skew.y = skewY;
+        tile.y = baseY + liftY;
+
+        // shadow gets longer & darker when elevated, then returns
+        tile._shadow.distance = startShadowDist + (4 - startShadowDist) * elev;
+        tile._shadow.alpha =
+          startShadowAlpha + (0.55 - startShadowAlpha) * elev;
+
+        // swap at midpoint (when the edge is thinnest)
+        if (!swapped && t >= 0.5) {
+          swapped = true;
+          txt.visible = true;
+          if (face === "bomb") {
+            txt.text = "💣";
+            flipFace(card, size, size, r, PALETTE.bombA);
+            flipInset(inset, size, size, r, pad, PALETTE.bombB);
+          } else {
+            txt.text = "💎";
+            flipFace(card, size, size, r, PALETTE.safeA);
+            flipInset(inset, size, size, r, pad, PALETTE.safeB);
+          }
+        }
       },
       complete: () => {
-        // Mid-swap
-        txt.visible = true;
+        forceFlatPose(tile); // ⬅️ ensures no residual tilt
+        tile._animating = false;
+        tile.revealed = true;
+
+        // End-state game logic (same as before)
         if (face === "bomb") {
-          txt.text = "💣";
-          flipFace(card, size, size, r, PALETTE.bombA);
-          flipInset(inset, size, size, r, pad, PALETTE.bombB);
+          gameOver = true;
+          statusText.text = "BOOM! Tap reset.";
+          statusText.style.fill = 0xffaaaa;
+          onGameOver();
         } else {
-          txt.text = "💎";
-          flipFace(card, size, size, r, PALETTE.safeA);
-          flipInset(inset, size, size, r, pad, PALETTE.safeB);
+          revealedSafe += 1;
+          statusText.style.fill = 0xbfc7d5;
+          statusText.text = `Safe picks: ${revealedSafe} / ${totalSafe}`;
+          if (revealedSafe >= totalSafe) {
+            gameOver = true;
+            statusText.text = "You win! 🎉";
+            statusText.style.fill = 0xc7f9cc;
+            onWin();
+          }
         }
 
-        // Half 2: 0 -> 1
-        tween(app, {
-          duration: 160,
-          ease: (t) => t * t * t,
-          update: (t2) => {
-            const s = Math.max(0.0001, t2);
-            wrap.scale.x = s;
-            wrap.skew.y = (1 - s) * 0.25;
-          },
-          complete: () => {
-            wrap.scale.x = 1;
-            wrap.skew.y = 0;
-            tile._animating = false;
-
-            // Finish logic after the flip
-            tile.revealed = true;
-            if (face === "bomb") {
-              gameOver = true;
-              statusText.text = "BOOM! Tap reset.";
-              statusText.style.fill = 0xffaaaa;
-              onGameOver();
-            } else {
-              revealedSafe += 1;
-              statusText.style.fill = 0xbfc7d5;
-              statusText.text = `Safe picks: ${revealedSafe} / ${totalSafe}`;
-              if (revealedSafe >= totalSafe) {
-                gameOver = true;
-                statusText.text = "You win! 🎉";
-                statusText.style.fill = 0xc7f9cc;
-                onWin();
-              }
-            }
-
-            onChange(getState());
-          },
-        });
+        onChange(getState());
       },
     });
   }
@@ -332,6 +475,7 @@ export async function createMinesGame(mount, opts = {}) {
         const tile = createTile(r, c, tileSize);
         tile.x = startX + c * (tileSize + gap);
         tile.y = startY + r * (tileSize + gap);
+        tile._baseY = tile.y; // <— baseline for hover lift
         board.addChild(tile);
         tiles.push(tile);
       }
@@ -361,25 +505,6 @@ export async function createMinesGame(mount, opts = {}) {
     board.position.set(app.renderer.width / 2, app.renderer.height / 2 + 12);
     board.scale.set(1);
     // Ensure crisp layout on any size (no need to scale tiles; we rebuild on size changes)
-  }
-
-  function revealAllMines() {
-    tiles.forEach((t) => {
-      if (t.isMine && !t.revealed) {
-        t.revealed = true;
-        const txt = t._txt;
-        const card = t._card;
-        const inset = t._inset;
-        const size = t._tileSize;
-        const r = t._tileRadius;
-        const pad = t._tilePad;
-        txt.visible = true;
-        txt.text = "💣";
-        // match the bomb look
-        flipFace(card, size, size, r, PALETTE.bombA);
-        flipInset(inset, size, size, r, pad, PALETTE.bombB);
-      }
-    });
   }
 
   function resizeSquare() {
@@ -437,14 +562,22 @@ export async function createMinesGame(mount, opts = {}) {
   function enterWaitingState(tile) {
     waitingForChoice = true;
     selectedTile = tile;
+
+    // keep tilt; capture direction based on current skew sign
+    const sy = tile._wrap.skew.y || 0;
+    tile._tiltDir = sy >= 0 ? +1 : -1; // used by flip to bias the perspective
+
     tile._inset.tint = PALETTE.hoverTint;
     statusText.text = "Awaiting card content...";
     statusText.style.fill = 0xffe066;
+
+    wiggleTile(tile); // you already added this in step 1
     onChange(getState());
   }
 
   function clearSelection() {
     if (selectedTile && !selectedTile.revealed) {
+      hoverTile(selectedTile, false); // settle if it was hovered
       selectedTile._inset.tint = 0xffffff;
     }
     waitingForChoice = false;
@@ -452,6 +585,11 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function setSelectedCardIsDiamond() {
+    if (selectedTile?._animating) {
+      stopHover(selectedTile);
+      stopWiggle(selectedTile);
+    }
+
     if (
       !waitingForChoice ||
       !selectedTile ||
@@ -466,6 +604,11 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function SetSelectedCardIsBomb() {
+    if (selectedTile?._animating) {
+      stopHover(selectedTile);
+      stopWiggle(selectedTile);
+    }
+
     if (
       !waitingForChoice ||
       !selectedTile ||
