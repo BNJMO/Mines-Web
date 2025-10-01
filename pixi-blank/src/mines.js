@@ -134,11 +134,12 @@ export async function createMinesGame(mount, opts = {}) {
 
     // Hover: gently lift the inner panel
     t.on("pointerover", () => {
-      if (!gameOver && !t.revealed && selectedTile !== t)
+      if (!gameOver && !waitingForChoice && !t.revealed && selectedTile !== t)
         inset.tint = PALETTE.hoverTint;
     });
     t.on("pointerout", () => {
-      if (!t.revealed && selectedTile !== t) inset.tint = 0xffffff;
+      if (!waitingForChoice && !t.revealed && selectedTile !== t)
+        inset.tint = 0xffffff;
     });
 
     t.on("pointertap", () => {
