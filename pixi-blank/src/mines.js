@@ -65,11 +65,11 @@ export async function createMinesGame(mount, opts = {}) {
 
   /* Explosion spritesheet */
   const explosionSheetPath = opts.explosionSheetPath ?? explosionSheetUrl;
-  const explosionCols = opts.explosionCols ?? 7; // number of columns in the sheet
-  const explosionRows = opts.explosionRows ?? 3; // number of rows in the sheet
-  const explosionFps = opts.explosionFps ?? 24; // playback speed
-  const explosionScaleFit = opts.explosionScaleFit ?? 0.9; // how much of the tile size it occupies
-  const explosionOpacity = opts.explosionOpacity ?? 0.5;
+  const explosionCols = opts.explosionCols ?? 7;
+  const explosionRows = opts.explosionRows ?? 3;
+  const explosionFps = opts.explosionFps ?? 24;
+  const explosionScaleFit = opts.explosionScaleFit ?? 0.8;
+  const explosionOpacity = opts.explosionOpacity ?? 0.75;
 
   // Resolve mount element
   const root =

@@ -1,4 +1,5 @@
 import { createMinesGame } from "./mines.js";
+import explosionSheetUrl from "../assets/Sprites/Explosion_Spritesheet.png";
 
 // Mount into your element (keeps a 1:1 square; default 400x400)
 const game = await createMinesGame("#mines", {
@@ -27,6 +28,14 @@ const game = await createMinesGame("#mines", {
   /* Flip */
   flipDuration: 380,
   flipEaseFunction: "easeInOutSine",
+
+  /* Explosion spritesheet */
+  explosionSheetPath: explosionSheetUrl,
+  explosionCols: 7, // number of columns in the sheet
+  explosionRows: 3, // number of rows in the sheet
+  explosionFps: 24, // playback speed
+  explosionScaleFit: 0.8, // how much of the tile size it occupies
+  explosionOpacity: 0.75, // sprite's transparency
 });
 
 // Example: wire up your own external controls
