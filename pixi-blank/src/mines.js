@@ -39,18 +39,20 @@ export async function createMinesGame(mount, opts = {}) {
 
   // Animation Options
   /* Hover */
-  const hoverEnterDuration = 120;
-  const hoverExitDuration = 200;
+  const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
+  const hoverExitDuration = opts.hoverExitDuration ?? 200;
+  const hoverTiltAxis = opts.hoverTiltAxis ?? "x"; // 'y' | 'x'
+  const hoverSkewAmount = opts.hoverSkewAmount ?? 0.0;
 
   /* Wiggle */
-  const wiggleDuration = 900;
-  const wiggleTimes = 10;
-  const wiggleIntensity = 0.05;
-  const wiggleScale = 0.02;
+  const wiggleDuration = opts.wiggleDuration ?? 900;
+  const wiggleTimes = opts.wiggleTimes ?? 10;
+  const wiggleIntensity = opts.wiggleIntensity ?? 0.05;
+  const wiggleScale = opts.wiggleScale ?? 0.02;
 
   /* Flip */
-  const flipDuration = 380;
-  const flipEaseFunction = "easeInOutSine";
+  const flipDuration = opts.flipDuration ?? 380;
+  const flipEaseFunction = opts.flipEaseFunction ?? "easeInOutSine";
 
   // Resolve mount element
   const root =
@@ -112,36 +114,46 @@ export async function createMinesGame(mount, opts = {}) {
     });
   }
 
+  function getSkew(wrap) {
+    return hoverTiltAxis === "y" ? wrap.skew.y : wrap.skew.x;
+  }
+  function setSkew(wrap, v) {
+    if (hoverTiltAxis === "y") wrap.skew.y = v;
+    else wrap.skew.x = v;
+  }
+
   function hoverTile(t, on) {
-    // Don’t hover during flips or while a different selection is pending
     if (t._animating) return;
 
-    // Targets (very subtle)
-    const startScale = t._wrap.scale.x; // current (should be 1 when idle)
-    const endScale = on ? 1.03 : 1.0; // tiny pop
-    const startSkew = t._wrap.skew.y;
-    const endSkew = on ? 0.06 : 0.0; // slight perspective hint
+    const startScale = t._wrap.scale.x;
+    const endScale = on ? 1.03 : 1.0;
+
+    const startSkew = getSkew(t._wrap);
+    const endSkew = on ? hoverSkewAmount : 0; // tilt on the configured axis
+
     const startY = t.y;
-    const endY = on ? t._baseY - 3 : t._baseY; // lift 3 px
+    const endY = on ? t._baseY - 3 : t._baseY;
+
     const sh = t._shadow;
     const sDist0 = sh.distance,
-      sDist1 = on ? 4 : 2; // a bit longer shadow
+      sDist1 = on ? 4 : 2;
     const sAlpha0 = sh.alpha,
       sAlpha1 = on ? 0.5 : 0.35;
 
-    // Kill previous hover tween by marking a token
     const token = Symbol("hover");
     t._hoverToken = token;
 
     tween(app, {
       duration: on ? hoverEnterDuration : hoverExitDuration,
-      ease: (x) => (on ? 1 - Math.pow(1 - x, 3) : x * x * x), // ease-out / ease-in
+      ease: (x) => (on ? 1 - Math.pow(1 - x, 3) : x * x * x),
       update: (p) => {
-        if (t._hoverToken !== token) return; // superseded
-        // Lerp
-        t._wrap.scale.x = t._wrap.scale.y =
-          startScale + (endScale - startScale) * p;
-        t._wrap.skew.y = startSkew + (endSkew - startSkew) * p;
+        if (t._hoverToken !== token) return;
+        const s = startScale + (endScale - startScale) * p;
+        t._wrap.scale.x = t._wrap.scale.y = s;
+
+        const k = startSkew + (endSkew - startSkew) * p;
+        setSkew(t._wrap, k); // <- axis-aware
+
         t.y = startY + (endY - startY) * p;
         sh.distance = sDist0 + (sDist1 - sDist0) * p;
         sh.alpha = sAlpha0 + (sAlpha1 - sAlpha0) * p;
@@ -149,7 +161,7 @@ export async function createMinesGame(mount, opts = {}) {
       complete: () => {
         if (t._hoverToken !== token) return;
         t._wrap.scale.set(endScale);
-        t._wrap.skew.y = endSkew;
+        setSkew(t._wrap, endSkew); // <- axis-aware
         t.y = endY;
         sh.distance = sDist1;
         sh.alpha = sAlpha1;
@@ -161,7 +173,7 @@ export async function createMinesGame(mount, opts = {}) {
     if (t._animating) return;
 
     const wrap = t._wrap;
-    const baseSkew = wrap.skew.y;
+    const baseSkew = getSkew(wrap); // <- axis-aware
     const baseScale = wrap.scale.x;
 
     t._animating = true;
@@ -170,23 +182,20 @@ export async function createMinesGame(mount, opts = {}) {
     t._wiggleToken = token;
 
     tween(app, {
-      duration: wiggleDuration, // total duration
+      duration: wiggleDuration,
       ease: (p) => p,
       update: (p) => {
         if (t._wiggleToken !== token) return;
-        // oscillate skew around base
-        const wiggle = Math.sin(p * Math.PI * wiggleTimes) * wiggleIntensity; // 2 cycles
-        wrap.skew.y = baseSkew + wiggle;
+        const wiggle = Math.sin(p * Math.PI * wiggleTimes) * wiggleIntensity;
+        setSkew(wrap, baseSkew + wiggle); // <- axis-aware
 
-        // subtle squash/stretch
         const scaleWiggle =
           1 + Math.sin(p * Math.PI * wiggleTimes) * wiggleScale;
         wrap.scale.x = wrap.scale.y = baseScale * scaleWiggle;
       },
       complete: () => {
         if (t._wiggleToken !== token) return;
-        // restore to base tilt (don’t flatten!)
-        wrap.skew.y = baseSkew;
+        setSkew(wrap, baseSkew); // <- axis-aware
         wrap.scale.x = wrap.scale.y = baseScale;
         t._animating = false;
       },
@@ -372,7 +381,7 @@ export async function createMinesGame(mount, opts = {}) {
     // start pose (likely slightly tilted & lifted)
     const startScaleX = wrap.scale.x; // ~1.03 if hovered/selected
     const startScaleY = wrap.scale.y; // same as X
-    const startSkewY = wrap.skew.y; // small tilt
+    const startSkew = getSkew(wrap);
     const startY = tile.y;
     const startShadowDist = tile._shadow.distance;
     const startShadowAlpha = tile._shadow.alpha;
@@ -400,14 +409,16 @@ export async function createMinesGame(mount, opts = {}) {
         // perspective bias: small skew around mid, using the stored direction
         // we smoothly remove the initial skew as we approach the edge,
         // then add a tiny directional bias so it looks like the same flip direction
-        const biasSkew = dir * 0.22 * Math.sin(Math.PI * t); // peak at mid
-        const skewY = startSkewY * (1 - t) + biasSkew;
+        const biasSkew =
+          (tile._tiltDir ?? (startSkew >= 0 ? +1 : -1)) *
+          0.22 *
+          Math.sin(Math.PI * t);
+        const skewOut = startSkew * (1 - t) + biasSkew;
 
         // apply transforms
         wrap.scale.x = widthFactor * popS;
         wrap.scale.y = startScaleY * popS;
-        wrap.skew.y = skewY;
-        tile.y = baseY + liftY;
+        setSkew(wrap, skewOut);
 
         // shadow gets longer & darker when elevated, then returns
         tile._shadow.distance = startShadowDist + (4 - startShadowDist) * elev;
@@ -564,8 +575,8 @@ export async function createMinesGame(mount, opts = {}) {
     selectedTile = tile;
 
     // keep tilt; capture direction based on current skew sign
-    const sy = tile._wrap.skew.y || 0;
-    tile._tiltDir = sy >= 0 ? +1 : -1; // used by flip to bias the perspective
+    const sy = getSkew(tile._wrap) || 0;
+    tile._tiltDir = sy >= 0 ? +1 : -1;
 
     tile._inset.tint = PALETTE.hoverTint;
     statusText.text = "Awaiting card content...";
