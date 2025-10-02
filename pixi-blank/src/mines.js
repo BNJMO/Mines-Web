@@ -1,7 +1,16 @@
-// mines.js
-import { Application, Container, Graphics, Text } from "pixi.js";
+import {
+  Application,
+  Container,
+  Graphics,
+  Text,
+  Texture,
+  Rectangle,
+  AnimatedSprite,
+  Assets,
+} from "pixi.js";
 import { DropShadowFilter } from "@pixi/filter-drop-shadow";
 import Ease from "./ease.js";
+import explosionSheetUrl from "../assets/Sprites/Explosion_Spritesheet.png";
 
 const PALETTE = {
   appBg: 0x0b1a22, // page/canvas background
@@ -54,6 +63,14 @@ export async function createMinesGame(mount, opts = {}) {
   const flipDuration = opts.flipDuration ?? 380;
   const flipEaseFunction = opts.flipEaseFunction ?? "easeInOutSine";
 
+  /* Explosion spritesheet */
+  const explosionSheetPath = opts.explosionSheetPath ?? explosionSheetUrl;
+  const explosionCols = opts.explosionCols ?? 7; // number of columns in the sheet
+  const explosionRows = opts.explosionRows ?? 3; // number of rows in the sheet
+  const explosionFps = opts.explosionFps ?? 24; // playback speed
+  const explosionScaleFit = opts.explosionScaleFit ?? 0.9; // how much of the tile size it occupies
+  const explosionOpacity = opts.explosionOpacity ?? 0.5;
+
   // Resolve mount element
   const root =
     typeof mount === "string" ? document.querySelector(mount) : mount;
@@ -67,6 +84,11 @@ export async function createMinesGame(mount, opts = {}) {
     root.style.width = `${initialSize}px`;
     root.style.maxWidth = "100%";
   }
+
+  let explosionFrames = null;
+  let explosionFrameW = 0;
+  let explosionFrameH = 0;
+  await loadExplosionFrames();
 
   // PIXI app
   const app = new Application();
@@ -112,6 +134,64 @@ export async function createMinesGame(mount, opts = {}) {
         align: "center",
       },
     });
+  }
+
+  async function loadExplosionFrames() {
+    if (explosionFrames) return; // already loaded
+
+    // Load the Texture (awaits image decoding)
+    const baseTex = await Assets.load(explosionSheetPath); // returns a Texture
+
+    const sheetW = baseTex.width;
+    const sheetH = baseTex.height;
+
+    explosionFrameW = Math.floor(sheetW / explosionCols);
+    explosionFrameH = Math.floor(sheetH / explosionRows);
+
+    explosionFrames = [];
+    for (let r = 0; r < explosionRows; r++) {
+      for (let c = 0; c < explosionCols; c++) {
+        const rect = new Rectangle(
+          c * explosionFrameW,
+          r * explosionFrameH,
+          explosionFrameW,
+          explosionFrameH
+        );
+        // Modern ctor: pass the *source* + frame rect
+        explosionFrames.push(
+          new Texture({ source: baseTex.source, frame: rect })
+        );
+      }
+    }
+  }
+
+  function spawnExplosionOnTile(tile) {
+    if (!explosionFrames || !explosionFrames.length) return;
+
+    const anim = new AnimatedSprite(explosionFrames);
+    anim.loop = false;
+    anim.animationSpeed = explosionFps / 60; // Pixi uses 60 fps baseline
+    anim.anchor.set(0.5);
+    anim.alpha = explosionOpacity;
+
+    // Position in the tile's local space
+    const size = tile._tileSize;
+    anim.position.set(size / 2, size / 2);
+
+    // Scale to fit the tile
+    const sx = (size * explosionScaleFit) / explosionFrameW;
+    const sy = (size * explosionScaleFit) / explosionFrameH;
+    anim.scale.set(Math.min(sx, sy));
+
+    // Render behind card/inset/text
+    const wrap = tile._wrap;
+    const txtIndex = wrap.getChildIndex(tile._txt);
+    wrap.addChildAt(anim, txtIndex);
+
+    anim.onComplete = () => {
+      anim.destroy();
+    };
+    anim.play();
   }
 
   function getSkew(wrap) {
@@ -387,7 +467,7 @@ export async function createMinesGame(mount, opts = {}) {
     const startShadowAlpha = tile._shadow.alpha;
 
     // direction for perspective bias (left/right)
-    const dir = tile._tiltDir ?? (startSkewY >= 0 ? +1 : -1);
+    const dir = tile._tiltDir ?? (startSkew >= 0 ? +1 : -1);
 
     let swapped = false;
 
@@ -433,6 +513,7 @@ export async function createMinesGame(mount, opts = {}) {
             txt.text = "💣";
             flipFace(card, size, size, r, PALETTE.bombA);
             flipInset(inset, size, size, r, pad, PALETTE.bombB);
+            spawnExplosionOnTile(tile);
           } else {
             txt.text = "💎";
             flipFace(card, size, size, r, PALETTE.safeA);
