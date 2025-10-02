@@ -47,29 +47,42 @@ export async function createMinesGame(mount, opts = {}) {
   const initialSize = Math.max(1, opts.size ?? 400); // default 400
 
   // Animation Options
-  /* Hover */
+  /* Card Hover */
+  const hoverEnabled = opts.hoverEnabled ?? true;
   const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
   const hoverExitDuration = opts.hoverExitDuration ?? 200;
   const hoverTiltAxis = opts.hoverTiltAxis ?? "x"; // 'y' | 'x'
   const hoverSkewAmount = opts.hoverSkewAmount ?? 0.0;
 
-  /* Wiggle */
-  const wiggleDuration = opts.wiggleDuration ?? 900;
-  const wiggleTimes = opts.wiggleTimes ?? 10;
-  const wiggleIntensity = opts.wiggleIntensity ?? 0.05;
-  const wiggleScale = opts.wiggleScale ?? 0.02;
+  /* Card Selected Wiggle */
+  const wiggleSelectionEnabled = opts.wiggleSelectionEnabled ?? true;
+  const wiggleSelectionDuration = opts.wiggleSelectionDuration ?? 900;
+  const wiggleSelectionTimes = opts.wiggleSelectionTimes ?? 10;
+  const wiggleSelectionIntensity = opts.wiggleSelectionIntensity ?? 0.05;
+  const wiggleSelectionScale = opts.wiggleSelectionScale ?? 0.02;
 
-  /* Flip */
+  /* Card Reveal Flip */
   const flipDuration = opts.flipDuration ?? 380;
   const flipEaseFunction = opts.flipEaseFunction ?? "easeInOutSine";
 
-  /* Explosion spritesheet */
+  /* Bomb Explosion shake */
+  const explosionShakeEnabled = opts.explosionShakeEnabled ?? true;
+  const explosionShakeDuration = opts.explosionShakeDuration ?? 1000;
+  const explosionShakeAmplitude = opts.explosionShakeAmplitude ?? 6;
+  const explosionShakerotationAmplitude =
+    opts.explosionShakerotationAmplitude ?? 0.012;
+  const explosionShakeBaseFrequency = opts.explosionShakeBaseFrequency ?? 8;
+  const explosionShakeSecondaryFrequency =
+    opts.explosionShakeSecondaryFrequency ?? 13;
+
+  /* Bomb Explosion spritesheet */
+  const explosionSheetEnabled = opts.explosionSheetEnabled ?? true;
   const explosionSheetPath = opts.explosionSheetPath ?? explosionSheetUrl;
-  const explosionCols = opts.explosionCols ?? 7;
-  const explosionRows = opts.explosionRows ?? 3;
-  const explosionFps = opts.explosionFps ?? 24;
-  const explosionScaleFit = opts.explosionScaleFit ?? 0.8;
-  const explosionOpacity = opts.explosionOpacity ?? 0.75;
+  const explosionSheetCols = opts.explosionSheetCols ?? 7;
+  const explosionSheetRows = opts.explosionSheetRows ?? 3;
+  const explosionSheetFps = opts.explosionSheetFps ?? 24;
+  const explosionSheetScaleFit = opts.explosionSheetScaleFit ?? 0.8;
+  const explosionSheetOpacity = opts.explosionSheetOpacity ?? 0.75;
 
   // Resolve mount element
   const root =
@@ -145,12 +158,12 @@ export async function createMinesGame(mount, opts = {}) {
     const sheetW = baseTex.width;
     const sheetH = baseTex.height;
 
-    explosionFrameW = Math.floor(sheetW / explosionCols);
-    explosionFrameH = Math.floor(sheetH / explosionRows);
+    explosionFrameW = Math.floor(sheetW / explosionSheetCols);
+    explosionFrameH = Math.floor(sheetH / explosionSheetRows);
 
     explosionFrames = [];
-    for (let r = 0; r < explosionRows; r++) {
-      for (let c = 0; c < explosionCols; c++) {
+    for (let r = 0; r < explosionSheetRows; r++) {
+      for (let c = 0; c < explosionSheetCols; c++) {
         const rect = new Rectangle(
           c * explosionFrameW,
           r * explosionFrameH,
@@ -166,21 +179,22 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function spawnExplosionOnTile(tile) {
-    if (!explosionFrames || !explosionFrames.length) return;
+    if (!explosionSheetEnabled || !explosionFrames || !explosionFrames.length)
+      return;
 
     const anim = new AnimatedSprite(explosionFrames);
     anim.loop = false;
-    anim.animationSpeed = explosionFps / 60; // Pixi uses 60 fps baseline
+    anim.animationSpeed = explosionSheetFps / 60; // Pixi uses 60 fps baseline
     anim.anchor.set(0.5);
-    anim.alpha = explosionOpacity;
+    anim.alpha = explosionSheetOpacity;
 
     // Position in the tile's local space
     const size = tile._tileSize;
     anim.position.set(size / 2, size / 2);
 
     // Scale to fit the tile
-    const sx = (size * explosionScaleFit) / explosionFrameW;
-    const sy = (size * explosionScaleFit) / explosionFrameH;
+    const sx = (size * explosionSheetScaleFit) / explosionFrameW;
+    const sy = (size * explosionSheetScaleFit) / explosionFrameH;
     anim.scale.set(Math.min(sx, sy));
 
     // Render behind card/inset/text
@@ -194,6 +208,55 @@ export async function createMinesGame(mount, opts = {}) {
     anim.play();
   }
 
+  function bombShakeTile(tile) {
+    if (!explosionShakeEnabled || tile._bombShaking) return;
+    tile._bombShaking = true;
+
+    const duration = explosionShakeDuration;
+    const amp = explosionShakeAmplitude;
+    const rotAmp = explosionShakerotationAmplitude;
+    const f1 = explosionShakeBaseFrequency;
+    const f2 = explosionShakeSecondaryFrequency;
+
+    const bx = tile._baseX ?? tile.x;
+    const by = tile._baseY ?? tile.y;
+    const r0 = tile.rotation;
+
+    // random phases so each shake feels organic
+    const phiX1 = Math.random() * Math.PI * 2;
+    const phiX2 = Math.random() * Math.PI * 2;
+    const phiY1 = Math.random() * Math.PI * 2;
+    const phiY2 = Math.random() * Math.PI * 2;
+
+    tween(app, {
+      duration,
+      ease: (t) => t, // custom shaping inside
+      update: (p) => {
+        // Damped multi-oscillation movement
+        const decay = Math.exp(-5 * p);
+        const w1 = p * Math.PI * 2 * f1;
+        const w2 = p * Math.PI * 2 * f2;
+
+        const dx =
+          (Math.sin(w1 + phiX1) + 0.5 * Math.sin(w2 + phiX2)) * amp * decay;
+        const dy =
+          (Math.cos(w1 + phiY1) + 0.5 * Math.sin(w2 + phiY2)) * amp * decay;
+
+        tile.x = bx + dx;
+        tile.y = by + dy;
+
+        // optional micro-rotation to sell the impact
+        tile.rotation = r0 + Math.sin(w2 + phiX1) * rotAmp * decay;
+      },
+      complete: () => {
+        tile.x = bx;
+        tile.y = by;
+        tile.rotation = r0;
+        tile._bombShaking = false;
+      },
+    });
+  }
+
   function getSkew(wrap) {
     return hoverTiltAxis === "y" ? wrap.skew.y : wrap.skew.x;
   }
@@ -203,7 +266,7 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function hoverTile(t, on) {
-    if (t._animating) return;
+    if (!hoverEnabled || t._animating) return;
 
     const startScale = t._wrap.scale.x;
     const endScale = on ? 1.03 : 1.0;
@@ -250,10 +313,10 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function wiggleTile(t) {
-    if (t._animating) return;
+    if (!wiggleSelectionEnabled || t._animating) return;
 
     const wrap = t._wrap;
-    const baseSkew = getSkew(wrap); // <- axis-aware
+    const baseSkew = getSkew(wrap);
     const baseScale = wrap.scale.x;
 
     t._animating = true;
@@ -262,15 +325,18 @@ export async function createMinesGame(mount, opts = {}) {
     t._wiggleToken = token;
 
     tween(app, {
-      duration: wiggleDuration,
+      duration: wiggleSelectionDuration,
       ease: (p) => p,
       update: (p) => {
         if (t._wiggleToken !== token) return;
-        const wiggle = Math.sin(p * Math.PI * wiggleTimes) * wiggleIntensity;
+        const wiggle =
+          Math.sin(p * Math.PI * wiggleSelectionTimes) *
+          wiggleSelectionIntensity;
         setSkew(wrap, baseSkew + wiggle); // <- axis-aware
 
         const scaleWiggle =
-          1 + Math.sin(p * Math.PI * wiggleTimes) * wiggleScale;
+          1 +
+          Math.sin(p * Math.PI * wiggleSelectionTimes) * wiggleSelectionScale;
         wrap.scale.x = wrap.scale.y = baseScale * scaleWiggle;
       },
       complete: () => {
@@ -514,6 +580,7 @@ export async function createMinesGame(mount, opts = {}) {
             flipFace(card, size, size, r, PALETTE.bombA);
             flipInset(inset, size, size, r, pad, PALETTE.bombB);
             spawnExplosionOnTile(tile);
+            bombShakeTile(tile);
           } else {
             txt.text = "💎";
             flipFace(card, size, size, r, PALETTE.safeA);
@@ -567,7 +634,8 @@ export async function createMinesGame(mount, opts = {}) {
         const tile = createTile(r, c, tileSize);
         tile.x = startX + c * (tileSize + gap);
         tile.y = startY + r * (tileSize + gap);
-        tile._baseY = tile.y; // <— baseline for hover lift
+        tile._baseX = tile.x;
+        tile._baseY = tile.y;
         board.addChild(tile);
         tiles.push(tile);
       }

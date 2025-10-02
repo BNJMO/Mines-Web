@@ -13,29 +13,40 @@ const game = await createMinesGame("#mines", {
   mines: 5,
 
   // Animations feel
-  /* Hover */
-  hoverEnterDuration: 120,
+  /* Card Hover */
+  hoverEnabled: true,
+  hoverEnterDuration: 120, // in ms
   hoverExitDuration: 200,
   hoverTiltAxis: "x", // 'y' | 'x'
   hoverSkewAmount: 0.02,
 
-  /* Wiggle */
-  wiggleDuration: 900,
-  wiggleTimes: 10,
-  wiggleIntensity: 0.01,
-  wiggleScale: 0.02,
+  /* Card Selected Wiggle */
+  wiggleSelectionEnabled: true,
+  wiggleSelectionDuration: 900, // in ms
+  wiggleSelectionTimes: 10,
+  wiggleSelectionIntensity: 0.01,
+  wiggleSelectionScale: 0.02,
 
-  /* Flip */
-  flipDuration: 380,
-  flipEaseFunction: "easeInOutSine",
+  /* Card Reveal Flip */
+  flipDuration: 380, // in ms
+  flipEaseFunction: "easeInOutSine", // ease method's name from ease.js
 
-  /* Explosion spritesheet */
+  /* Bomb Explosion shake */
+  explosionShakeEnabled: true,
+  explosionShakeDuration: 1000, // in ms
+  explosionShakeAmplitude: 6, // in px (peak)
+  explosionShakerotationAmplitude: 0.012, // subtle rotational spice (radians)
+  explosionShakeBaseFrequency: 8, // base frequency
+  explosionShakeSecondaryFrequency: 13, // second frequency for richer feel
+
+  /* Bomb Explosion spritesheet */
+  explosionSheetEnabled: true,
   explosionSheetPath: explosionSheetUrl,
-  explosionCols: 7, // number of columns in the sheet
-  explosionRows: 3, // number of rows in the sheet
-  explosionFps: 24, // playback speed
-  explosionScaleFit: 0.8, // how much of the tile size it occupies
-  explosionOpacity: 0.75, // sprite's transparency
+  explosionSheetCols: 7, // number of columns in the sheet
+  explosionSheetRows: 3, // number of rows in the sheet
+  explosionSheetFps: 24, // playback speed
+  explosionSheetScaleFit: 0.8, // how much of the tile size it occupies
+  explosionSheetOpacity: 0.75, // sprite's transparency
 });
 
 // Example: wire up your own external controls
