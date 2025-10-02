@@ -1,7 +1,6 @@
 import { createMinesGame } from "./mines.js";
 import explosionSheetUrl from "../assets/Sprites/Explosion_Spritesheet.png";
 
-// Mount into your element (keeps a 1:1 square; default 400x400)
 const game = await createMinesGame("#mines", {
   // Window visuals
   size: 400,
@@ -12,23 +11,36 @@ const game = await createMinesGame("#mines", {
   grid: 5,
   mines: 5,
 
+  // Event callback for when a card is selected
+  onCardSelected: ({ row, col, tile }) => {
+    // TODO: Add code here to either call "game.SetSelectedCardIsBomb();" or "game.setSelectedCardIsDiamond();"
+
+    // Example : Basic Random selector
+    if (Math.random() < 0.2) {
+      game.SetSelectedCardIsBomb();
+    } else {
+      game.setSelectedCardIsDiamond();
+    }
+  },
+
   // Animations feel
   /* Card Hover */
   hoverEnabled: true,
   hoverEnterDuration: 120, // in ms
-  hoverExitDuration: 200,
+  hoverExitDuration: 200, // in ms
   hoverTiltAxis: "x", // 'y' | 'x'
-  hoverSkewAmount: 0.02,
+  hoverSkewAmount: 0.02, // mimic 3D tilt effect
 
   /* Card Selected Wiggle */
   wiggleSelectionEnabled: true,
   wiggleSelectionDuration: 900, // in ms
-  wiggleSelectionTimes: 10,
-  wiggleSelectionIntensity: 0.01,
-  wiggleSelectionScale: 0.02,
+  wiggleSelectionTimes: 15, // how many times the card wiggles during the entire duration
+  wiggleSelectionIntensity: 0.03, // intensity of the wiggle 
+  wiggleSelectionScale: 0.005, // scale of the wiggle
 
   /* Card Reveal Flip */
-  flipDuration: 380, // in ms
+  flipDelay: 250, // in ms
+  flipDuration: 300, // in ms
   flipEaseFunction: "easeInOutSine", // ease method's name from ease.js
 
   /* Bomb Explosion shake */
@@ -49,7 +61,6 @@ const game = await createMinesGame("#mines", {
   explosionSheetOpacity: 0.75, // sprite's transparency
 });
 
-// Example: wire up your own external controls
 document
   .querySelector("#resetBtn")
   ?.addEventListener("click", () => game.reset());
@@ -60,7 +71,6 @@ document
   .querySelector("#hardBtn")
   ?.addEventListener("click", () => game.setMines(10));
 
-// Temporary helpers to test controlled reveals
 document
   .querySelector("#diamondBtn")
   ?.addEventListener("click", () => game.setSelectedCardIsDiamond());

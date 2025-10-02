@@ -12,6 +12,11 @@ body {
   background: #111;        /* optional: dark background */
 }
 
+body, button {
+  font-family: "Cora", sans-serif;
+  color: #e2e2e2;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -34,8 +39,10 @@ button {
   font-weight: 500;
   font-family: inherit;
   background-color: #e2e2e2;
+  color: #2c2c2c;
   cursor: pointer;
   transition: border-color 0.25s;
+
 }
 button:hover {
   border-color: #646cff;
