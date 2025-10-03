@@ -1,18 +1,23 @@
 import { createMinesGame } from "./mines.js";
+import diamondTextureUrl from "../assets/Sprites/Diamond.png";
+import bombTextureUrl from "../assets/Sprites/Bomb.png";
 import explosionSheetUrl from "../assets/Sprites/Explosion_Spritesheet.png";
 
 const game = await createMinesGame("#mines", {
   // Window visuals
   size: 600,
-  background: "#121212",
+  backgroundColor: "#121212",
   fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial",
 
   // Game setup
-  grid: 5,
+  grid: 3,
   mines: 5,
 
   // Visuals
-  cardImageSizePercentage: 0.55, // percetange (between 0 and 1) of the card's content (diamond or bomb) inside the card
+  diamondTexturePath: diamondTextureUrl,
+  bombTexturePath: bombTextureUrl,
+  iconSizePercentage: 0.7, // percetange (between 0 and 1) of the card's content (diamond or bomb) inside the card
+  iconRevealedSizeFactor: 0.85, // mulitplier factor for the icon's size that have been revealed.
   cardsSpawnDuration: 300, // duration in ms of the animations the cards play to show up when the game begins
   revealAllIntervalDelay: 40, // Delay in ms between every card revealed on gameover
 
@@ -32,7 +37,8 @@ const game = await createMinesGame("#mines", {
   wiggleSelectionScale: 0.005, // scale of the wiggle
 
   /* Card Reveal Flip */
-  flipDelay: 250, // in ms
+  flipDelayMin: 150, // Minimum range of delay in ms to flip card after its content is determined. Actual delay is proportional to the number of cards already revealed.
+  flipDelayMax: 500, // Minimum range of delay in ms to flip card after its content is determined. Actual delay is proportional to the number of cards already revealed.
   flipDuration: 300, // in ms
   flipEaseFunction: "easeInOutSine", // ease method's name from ease.js
 
@@ -58,7 +64,7 @@ const game = await createMinesGame("#mines", {
     // TODO: Add code here to either call "game.SetSelectedCardIsBomb();" or "game.setSelectedCardIsDiamond();"
 
     // Example : Basic Random selector
-    if (Math.random() < 0.2) {
+    if (Math.random() < 0.005) {
       game.SetSelectedCardIsBomb();
     } else {
       game.setSelectedCardIsDiamond();
