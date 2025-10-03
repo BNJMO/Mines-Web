@@ -9,6 +9,7 @@ import {
   Assets,
   Sprite,
 } from "pixi.js";
+import { sound } from "@pixi/sound";
 import { DropShadowFilter } from "@pixi/filter-drop-shadow";
 import Ease from "./ease.js";
 import diamondTextureUrl from "../assets/Sprites/Diamond.png";

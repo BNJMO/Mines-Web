@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@pixi/filter-drop-shadow": "^5.2.0",
+    "@pixi/sound": "^6.0.1",
     "pixi.js": "^8.13.2"
   }
 }
