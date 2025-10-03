@@ -13,6 +13,7 @@ const game = await createMinesGame("#mines", {
 
   // Visuals
   cardImageSizePercentage: 0.55, // percetange (between 0 and 1) of the card's content (diamond or bomb) inside the card
+  cardsSpawnDuration: 300, // duration in ms of the animations the cards play to show up when the game begins
   revealAllIntervalDelay: 40, // Delay in ms between every card revealed on gameover
 
   // Animations feel

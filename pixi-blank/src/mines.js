@@ -50,8 +50,10 @@ export async function createMinesGame(mount, opts = {}) {
   const initialSize = Math.max(1, opts.size ?? 400);
   const onCardSelected = opts.onCardSelected ?? null;
 
+  // Visuals
   const cardImageSizePercentage = opts.cardImageSizePercentage ?? 0.55;
-  const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 50;
+  const cardsSpawnDuration = opts.cardsSpawnDuration ?? 300;
+  const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
 
   // Animation Options
   /* Card Hover */
@@ -59,18 +61,18 @@ export async function createMinesGame(mount, opts = {}) {
   const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
   const hoverExitDuration = opts.hoverExitDuration ?? 200;
   const hoverTiltAxis = opts.hoverTiltAxis ?? "x"; // 'y' | 'x'
-  const hoverSkewAmount = opts.hoverSkewAmount ?? 0.0;
+  const hoverSkewAmount = opts.hoverSkewAmount ?? 0.02;
 
   /* Card Selected Wiggle */
   const wiggleSelectionEnabled = opts.wiggleSelectionEnabled ?? true;
   const wiggleSelectionDuration = opts.wiggleSelectionDuration ?? 900;
-  const wiggleSelectionTimes = opts.wiggleSelectionTimes ?? 10;
-  const wiggleSelectionIntensity = opts.wiggleSelectionIntensity ?? 0.05;
-  const wiggleSelectionScale = opts.wiggleSelectionScale ?? 0.02;
+  const wiggleSelectionTimes = opts.wiggleSelectionTimes ?? 15;
+  const wiggleSelectionIntensity = opts.wiggleSelectionIntensity ?? 0.03;
+  const wiggleSelectionScale = opts.wiggleSelectionScale ?? 0.005;
 
   /* Card Reveal Flip */
-  const flipDelay = opts.flipDelay ?? 100;
-  const flipDuration = opts.flipDuration ?? 380;
+  const flipDelay = opts.flipDelay ?? 250;
+  const flipDuration = opts.flipDuration ?? 300;
   const flipEaseFunction = opts.flipEaseFunction ?? "easeInOutSine";
 
   /* Bomb Explosion shake */
@@ -420,6 +422,23 @@ export async function createMinesGame(mount, opts = {}) {
     t._tileRadius = r;
     t._tilePad = pad;
     t._shadow = shadow;
+
+    // Spwan animation
+    t._animating = true;
+    const s0 = 0.0001;
+    flipWrap.scale.set(s0);
+    tween(app, {
+      duration: cardsSpawnDuration,
+      ease: (x) => Ease.easeOutBack(x), 
+      update: (p) => {
+        const s = s0 + (1 - s0) * p;
+        flipWrap.scale.set(s);
+      },
+      complete: () => {
+        flipWrap.scale.set(1, 1);
+        t._animating = false;
+      },
+    });
 
     t.on("pointerover", () => {
       if (
