@@ -17,7 +17,9 @@ const PALETTE = {
   tileBase: 0x2e4150, // main tile face
   tileInset: 0x2e4150, // inner inset
   tileStroke: 0x142028, // subtle outline
-  hoverTint: 0xfffbf7, // hover
+  hover: 0x4c6c84, // hover
+  pressedTint: 0x7A7A7A,
+  defaultTint: 0xffffff,
   bombA: 0x721c26,
   bombAUnrevealed: 0x26090c,
   bombB: 0x5a0f16,
@@ -145,6 +147,45 @@ export async function createMinesGame(mount, opts = {}) {
   const statusText = label(`Safe picks: 0 / ${totalSafe}`, 14, 0xbfc7d5);
   ui.addChild(titleText, statusText);
 
+  // Public API for host integration
+  function reset() {
+    gameOver = false;
+    clearSelection();
+    bombPositions.clear();
+    buildBoard();
+    positionUI();
+    centerBoard();
+    onChange(getState());
+  }
+
+  function setMines(n) {
+    mines = Math.max(1, Math.min(n | 0, GRID * GRID - 1));
+    reset();
+  }
+
+  function getState() {
+    return {
+      grid: GRID,
+      mines,
+      revealedSafe,
+      totalSafe,
+      gameOver,
+      waitingForChoice,
+      selectedTile: selectedTile
+        ? { row: selectedTile.row, col: selectedTile.col }
+        : null,
+    };
+  }
+
+  function destroy() {
+    try {
+      ro.disconnect();
+    } catch {}
+    app.destroy(true);
+    if (app.canvas?.parentNode === root) root.removeChild(app.canvas);
+  }
+
+  // Game functions
   function label(text, size, color) {
     return new Text({
       text,
@@ -262,52 +303,64 @@ export async function createMinesGame(mount, opts = {}) {
   function getSkew(wrap) {
     return hoverTiltAxis === "y" ? wrap.skew.y : wrap.skew.x;
   }
+
   function setSkew(wrap, v) {
     if (hoverTiltAxis === "y") wrap.skew.y = v;
     else wrap.skew.x = v;
   }
 
-  function hoverTile(t, on) {
-    if (!hoverEnabled || t._animating) return;
+  function hoverTile(tile, on) {
+    if (!hoverEnabled || tile._animating) return;
 
-    const startScale = t._wrap.scale.x;
+    const startScale = tile._wrap.scale.x;
     const endScale = on ? 1.03 : 1.0;
 
-    const startSkew = getSkew(t._wrap);
+    const startSkew = getSkew(tile._wrap);
     const endSkew = on ? hoverSkewAmount : 0;
 
-    const startY = t.y;
-    const endY = on ? t._baseY - 3 : t._baseY;
+    const startY = tile.y;
+    const endY = on ? tile._baseY - 3 : tile._baseY;
 
-    const sh = t._shadow;
+    const sh = tile._shadow;
     const sDist0 = sh.distance,
       sDist1 = on ? 4 : 2;
     const sAlpha0 = sh.alpha,
       sAlpha1 = on ? 0.5 : 0.35;
 
     const token = Symbol("hover");
-    t._hoverToken = token;
+    tile._hoverToken = token;
+
+    // Change color
+    const card = tile._card;
+    const inset = tile._inset;
+    const size = tile._tileSize;
+    const r = tile._tileRadius;
+    const pad = tile._tilePad;
+    const faceColor = on ? PALETTE.hover : PALETTE.tileBase;
+    flipFace(card, size, size, r, faceColor);
+    const insetColor = on ? PALETTE.hover : PALETTE.tileBase;
+    flipInset(inset, size, size, r, pad, insetColor);
 
     tween(app, {
       duration: on ? hoverEnterDuration : hoverExitDuration,
       ease: (x) => (on ? 1 - Math.pow(1 - x, 3) : x * x * x),
       update: (p) => {
-        if (t._hoverToken !== token) return;
+        if (tile._hoverToken !== token) return;
         const s = startScale + (endScale - startScale) * p;
-        t._wrap.scale.x = t._wrap.scale.y = s;
+        tile._wrap.scale.x = tile._wrap.scale.y = s;
 
         const k = startSkew + (endSkew - startSkew) * p;
-        setSkew(t._wrap, k);
+        setSkew(tile._wrap, k);
 
-        t.y = startY + (endY - startY) * p;
+        tile.y = startY + (endY - startY) * p;
         sh.distance = sDist0 + (sDist1 - sDist0) * p;
         sh.alpha = sAlpha0 + (sAlpha1 - sAlpha0) * p;
       },
       complete: () => {
-        if (t._hoverToken !== token) return;
-        t._wrap.scale.set(endScale);
-        setSkew(t._wrap, endSkew);
-        t.y = endY;
+        if (tile._hoverToken !== token) return;
+        tile._wrap.scale.set(endScale);
+        setSkew(tile._wrap, endSkew);
+        tile.y = endY;
         sh.distance = sDist1;
         sh.alpha = sAlpha1;
       },
@@ -424,19 +477,17 @@ export async function createMinesGame(mount, opts = {}) {
     t._shadow = shadow;
 
     // Spwan animation
-    t._animating = true;
     const s0 = 0.0001;
     flipWrap.scale.set(s0);
     tween(app, {
       duration: cardsSpawnDuration,
-      ease: (x) => Ease.easeOutBack(x), 
+      ease: (x) => Ease.easeOutBack(x),
       update: (p) => {
         const s = s0 + (1 - s0) * p;
         flipWrap.scale.set(s);
       },
       complete: () => {
         flipWrap.scale.set(1, 1);
-        t._animating = false;
       },
     });
 
@@ -449,14 +500,43 @@ export async function createMinesGame(mount, opts = {}) {
         selectedTile !== t
       ) {
         hoverTile(t, true);
+
+        if (t._pressed) {
+          t._inset.tint = PALETTE.pressedTint;
+          t._card.tint = PALETTE.pressedTint;
+        }
+      }
+    });
+    t.on("pointerdown", () => {
+      if (gameOver || waitingForChoice || t.revealed || t._animating) return;
+      t._inset.tint = PALETTE.pressedTint;
+      t._card.tint = PALETTE.pressedTint;
+      t._pressed = true;
+    });
+    t.on("pointerup", () => {
+      if (t._pressed) {
+        t._pressed = false;
+        t._inset.tint = PALETTE.defaultTint;
+        t._card.tint = PALETTE.defaultTint;
       }
     });
     t.on("pointerout", () => {
       if (!t.revealed && !t._animating && selectedTile !== t) {
         hoverTile(t, false);
+        if (t._pressed) {
+          t._pressed = false;
+          t._inset.tint = PALETTE.defaultTint;
+          t._card.tint = PALETTE.defaultTint;
+        }
       }
     });
-
+    t.on("pointerupoutside", () => {
+      if (t._pressed) {
+        t._pressed = false;
+        t._inset.tint = PALETTE.defaultTint;
+        t._card.tint = PALETTE.defaultTint;
+      }
+    });
     t.on("pointertap", () => {
       if (gameOver || waitingForChoice || t.revealed || t._animating) return;
       hoverTile(t, false);
@@ -466,15 +546,16 @@ export async function createMinesGame(mount, opts = {}) {
     return t;
   }
 
-  function flipFace(g, w, h, r, color, stroke = true) {
-    g.clear().roundRect(0, 0, w, h, r).fill(color);
+  function flipFace(graphic, w, h, r, color, stroke = true) {
+    graphic.clear().roundRect(0, 0, w, h, r).fill(color);
     if (stroke) {
-      g.stroke({ color: PALETTE.tileStroke, width: 2, alpha: 0.9 });
+      graphic.stroke({ color: PALETTE.tileStroke, width: 2, alpha: 0.9 });
     }
   }
 
-  function flipInset(g, w, h, r, pad, color) {
-    g.clear()
+  function flipInset(graphic, w, h, r, pad, color) {
+    graphic
+      .clear()
       .roundRect(pad, pad, w - pad * 2, h - pad * 2, Math.max(8, r - 6))
       .fill(color);
   }
@@ -694,11 +775,6 @@ export async function createMinesGame(mount, opts = {}) {
     centerBoard();
   }
 
-  resizeSquare();
-
-  const ro = new ResizeObserver(() => resizeSquare());
-  ro.observe(root);
-
   function revealAllTiles(triggeredBombTile) {
     const unrevealed = tiles.filter((t) => !t.revealed);
     const bombsNeeded = mines - 1;
@@ -724,41 +800,6 @@ export async function createMinesGame(mount, opts = {}) {
         revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
       }, revealAllIntervalDelay * idx);
     });
-  }
-
-  // Public API for host integration
-  function reset() {
-    gameOver = false;
-    clearSelection();
-    bombPositions.clear();
-    buildBoard();
-    positionUI();
-    centerBoard();
-    onChange(getState());
-  }
-  function setMines(n) {
-    mines = Math.max(1, Math.min(n | 0, GRID * GRID - 1));
-    reset();
-  }
-  function getState() {
-    return {
-      grid: GRID,
-      mines,
-      revealedSafe,
-      totalSafe,
-      gameOver,
-      waitingForChoice,
-      selectedTile: selectedTile
-        ? { row: selectedTile.row, col: selectedTile.col }
-        : null,
-    };
-  }
-  function destroy() {
-    try {
-      ro.disconnect();
-    } catch {}
-    app.destroy(true);
-    if (app.canvas?.parentNode === root) root.removeChild(app.canvas);
   }
 
   function enterWaitingState(tile) {
@@ -832,6 +873,11 @@ export async function createMinesGame(mount, opts = {}) {
     selectedTile = null;
     revealTileWithFlip(tile, "bomb");
   }
+
+  resizeSquare();
+
+  const ro = new ResizeObserver(() => resizeSquare());
+  ro.observe(root);
 
   return {
     app,
