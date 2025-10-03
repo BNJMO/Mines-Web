@@ -28,4 +28,12 @@ export default class Ease {
 
     return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
   }
+
+  static easeInOutQuad(x) {
+    return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+  }
+
+  static easeOutQuad(x) {
+    return 1 - (1 - x) * (1 - x);
+  }
 }

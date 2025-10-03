@@ -104,6 +104,11 @@ export async function createMinesGame(mount, opts = {}) {
   const explosionSheetScaleFit = opts.explosionSheetScaleFit ?? 0.8;
   const explosionSheetOpacity = opts.explosionSheetOpacity ?? 0.75;
 
+  /* Win pop-up */
+  const winPopupShowDuration = opts.winPopupShowDuration ?? 260;
+  const winPopupWidth = opts.winPopupWidth ?? 240;
+  const winPopupHeight = opts.winPopupHeight ?? 170;
+
   // Resolve mount element
   const root =
     typeof mount === "string" ? document.querySelector(mount) : mount;
@@ -258,8 +263,8 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function createWinPopup() {
-    const popupWidth = 240;
-    const popupHeight = 170;
+    const popupWidth = winPopupWidth;
+    const popupHeight = winPopupHeight;
 
     const container = new Container();
     container.visible = false;
@@ -280,13 +285,7 @@ export async function createMinesGame(mount, opts = {}) {
 
     const inner = new Graphics();
     inner
-      .roundRect(
-        -popupWidth / 2,
-        -popupHeight / 2,
-        popupWidth,
-        popupHeight,
-        28
-      )
+      .roundRect(-popupWidth / 2, -popupHeight / 2, popupWidth, popupHeight, 28)
       .fill(0x0f2b1a);
 
     const multiplierText = new Text({
@@ -337,10 +336,7 @@ export async function createMinesGame(mount, opts = {}) {
 
     const layoutAmountRow = () => {
       const spacing = 12;
-      coinContainer.position.set(
-        amountText.width + spacing + coinRadius,
-        0
-      );
+      coinContainer.position.set(amountText.width + spacing + coinRadius, 0);
       amountRow.pivot.set(amountRow.width / 2, amountRow.height / 2);
       amountRow.position.set(0, 34);
     };
@@ -379,7 +375,10 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function formatMultiplier(multiplierValue) {
-    if (typeof multiplierValue === "number" && Number.isFinite(multiplierValue)) {
+    if (
+      typeof multiplierValue === "number" &&
+      Number.isFinite(multiplierValue)
+    ) {
       return `${multiplierValue.toFixed(2)}×`;
     }
 
@@ -410,8 +409,8 @@ export async function createMinesGame(mount, opts = {}) {
     winPopup.container.scale.set(0);
 
     tween(app, {
-      duration: 260,
-      ease: (t) => t,
+      duration: winPopupShowDuration,
+      ease: (t) => Ease.easeOutQuad(t),
       update: (p) => {
         winPopup.container.scale.set(p);
       },
