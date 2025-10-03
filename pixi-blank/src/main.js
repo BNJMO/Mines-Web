@@ -59,6 +59,11 @@ const game = await createMinesGame("#mines", {
   explosionSheetScaleFit: 0.8, // how much of the tile size it occupies
   explosionSheetOpacity: 0.75, // sprite's transparency
 
+  /* Win pop-up */
+  winPopupShowDuration: 260, // in ms
+  winPopupWidth: 240, // in px
+  winPopupHeight: 170, // in px
+
   // Event callback for when a card is selected
   onCardSelected: ({ row, col, tile }) => {
     // TODO: Add code here to either call "game.SetSelectedCardIsBomb();" or "game.setSelectedCardIsDiamond();"
@@ -69,6 +74,9 @@ const game = await createMinesGame("#mines", {
     } else {
       game.setSelectedCardIsDiamond();
     }
+  },
+  onWin: () => {
+    game.showWinPopup(24.75, "0.00000000");
   },
 });
 
