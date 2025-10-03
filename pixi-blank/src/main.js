@@ -3,7 +3,7 @@ import explosionSheetUrl from "../assets/Sprites/Explosion_Spritesheet.png";
 
 const game = await createMinesGame("#mines", {
   // Window visuals
-  size: 400,
+  size: 600,
   background: "#121212",
   fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial",
 
@@ -11,17 +11,9 @@ const game = await createMinesGame("#mines", {
   grid: 5,
   mines: 5,
 
-  // Event callback for when a card is selected
-  onCardSelected: ({ row, col, tile }) => {
-    // TODO: Add code here to either call "game.SetSelectedCardIsBomb();" or "game.setSelectedCardIsDiamond();"
-
-    // Example : Basic Random selector
-    if (Math.random() < 0.2) {
-      game.SetSelectedCardIsBomb();
-    } else {
-      game.setSelectedCardIsDiamond();
-    }
-  },
+  // Visuals
+  cardImageSizePercentage: 0.55, // percetange (between 0 and 1) of the card's content (diamond or bomb) inside the card
+  revealAllIntervalDelay: 40, // Delay in ms between every card revealed on gameover
 
   // Animations feel
   /* Card Hover */
@@ -35,7 +27,7 @@ const game = await createMinesGame("#mines", {
   wiggleSelectionEnabled: true,
   wiggleSelectionDuration: 900, // in ms
   wiggleSelectionTimes: 15, // how many times the card wiggles during the entire duration
-  wiggleSelectionIntensity: 0.03, // intensity of the wiggle 
+  wiggleSelectionIntensity: 0.03, // intensity of the wiggle
   wiggleSelectionScale: 0.005, // scale of the wiggle
 
   /* Card Reveal Flip */
@@ -59,6 +51,18 @@ const game = await createMinesGame("#mines", {
   explosionSheetFps: 24, // playback speed
   explosionSheetScaleFit: 0.8, // how much of the tile size it occupies
   explosionSheetOpacity: 0.75, // sprite's transparency
+
+  // Event callback for when a card is selected
+  onCardSelected: ({ row, col, tile }) => {
+    // TODO: Add code here to either call "game.SetSelectedCardIsBomb();" or "game.setSelectedCardIsDiamond();"
+
+    // Example : Basic Random selector
+    if (Math.random() < 0.2) {
+      game.SetSelectedCardIsBomb();
+    } else {
+      game.setSelectedCardIsDiamond();
+    }
+  },
 });
 
 document
