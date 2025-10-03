@@ -70,6 +70,9 @@ const game = await createMinesGame("#mines", {
       game.setSelectedCardIsDiamond();
     }
   },
+  onWin: () => {
+    game.showWinPopup(24.75, "0.00000000");
+  },
 });
 
 document

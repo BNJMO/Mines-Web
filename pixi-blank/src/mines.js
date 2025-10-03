@@ -143,6 +143,9 @@ export async function createMinesGame(mount, opts = {}) {
   const ui = new Container();
   app.stage.addChild(board, ui);
 
+  const winPopup = createWinPopup();
+  ui.addChild(winPopup.container);
+
   let tiles = [];
   let bombPositions = new Set();
   let gameOver = false;
@@ -165,6 +168,7 @@ export async function createMinesGame(mount, opts = {}) {
   function reset() {
     gameOver = false;
     clearSelection();
+    hideWinPopup();
     bombPositions.clear();
     buildBoard();
     positionUI();
@@ -249,6 +253,167 @@ export async function createMinesGame(mount, opts = {}) {
         fontSize: size,
         fontWeight: "600",
         align: "center",
+      },
+    });
+  }
+
+  function createWinPopup() {
+    const popupWidth = 240;
+    const popupHeight = 170;
+
+    const container = new Container();
+    container.visible = false;
+    container.scale.set(0);
+    container.eventMode = "none";
+    container.zIndex = 1000;
+
+    const border = new Graphics();
+    border
+      .roundRect(
+        -popupWidth / 2 - 10,
+        -popupHeight / 2 - 10,
+        popupWidth + 20,
+        popupHeight + 20,
+        32
+      )
+      .fill(0x13d672);
+
+    const inner = new Graphics();
+    inner
+      .roundRect(
+        -popupWidth / 2,
+        -popupHeight / 2,
+        popupWidth,
+        popupHeight,
+        28
+      )
+      .fill(0x0f2b1a);
+
+    const multiplierText = new Text({
+      text: "1.00×",
+      style: {
+        fill: 0x69ffad,
+        fontFamily,
+        fontSize: 52,
+        fontWeight: "700",
+        align: "center",
+      },
+    });
+    multiplierText.anchor.set(0.5);
+    multiplierText.position.set(0, -20);
+
+    const amountRow = new Container();
+
+    const amountText = new Text({
+      text: "0.00000000",
+      style: {
+        fill: 0xffffff,
+        fontFamily,
+        fontSize: 26,
+        fontWeight: "600",
+        align: "center",
+      },
+    });
+    amountText.anchor.set(0, 0.5);
+    amountRow.addChild(amountText);
+
+    const coinContainer = new Container();
+    const coinRadius = 16;
+    const coinBg = new Graphics();
+    coinBg.circle(0, 0, coinRadius).fill(0xf6a821);
+    const coinText = new Text({
+      text: "₿",
+      style: {
+        fill: 0xffffff,
+        fontFamily,
+        fontSize: 18,
+        fontWeight: "700",
+        align: "center",
+      },
+    });
+    coinText.anchor.set(0.5);
+    coinContainer.addChild(coinBg, coinText);
+    amountRow.addChild(coinContainer);
+
+    const layoutAmountRow = () => {
+      const spacing = 12;
+      coinContainer.position.set(
+        amountText.width + spacing + coinRadius,
+        0
+      );
+      amountRow.pivot.set(amountRow.width / 2, amountRow.height / 2);
+      amountRow.position.set(0, 34);
+    };
+
+    layoutAmountRow();
+
+    container.addChild(border, inner, multiplierText, amountRow);
+
+    container.filters = [
+      new DropShadowFilter({
+        distance: 6,
+        blur: 8,
+        alpha: 0.4,
+        color: 0x000000,
+      }),
+    ];
+
+    return {
+      container,
+      multiplierText,
+      amountText,
+      layoutAmountRow,
+    };
+  }
+
+  function positionWinPopup() {
+    winPopup.container.position.set(
+      app.renderer.width / 2,
+      app.renderer.height / 2
+    );
+  }
+
+  function hideWinPopup() {
+    winPopup.container.visible = false;
+    winPopup.container.scale.set(0);
+  }
+
+  function formatMultiplier(multiplierValue) {
+    if (typeof multiplierValue === "number" && Number.isFinite(multiplierValue)) {
+      return `${multiplierValue.toFixed(2)}×`;
+    }
+
+    const raw = `${multiplierValue ?? ""}`;
+    if (!raw) return "";
+    return raw.endsWith("×") ? raw : `${raw}×`;
+  }
+
+  function formatAmount(amountValue) {
+    if (typeof amountValue === "number" && Number.isFinite(amountValue)) {
+      return amountValue.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 8,
+      });
+    }
+
+    return `${amountValue ?? ""}`;
+  }
+
+  function spawnWinPopup(multiplierValue, amountValue) {
+    winPopup.multiplierText.text = formatMultiplier(multiplierValue);
+    winPopup.amountText.text = formatAmount(amountValue);
+    winPopup.layoutAmountRow();
+    positionWinPopup();
+
+    winPopup.container.visible = true;
+    winPopup.container.alpha = 1;
+    winPopup.container.scale.set(0);
+
+    tween(app, {
+      duration: 260,
+      ease: (t) => t,
+      update: (p) => {
+        winPopup.container.scale.set(p);
       },
     });
   }
@@ -889,6 +1054,7 @@ export async function createMinesGame(mount, opts = {}) {
   function centerBoard() {
     board.position.set(app.renderer.width / 2, app.renderer.height / 2 + 12);
     board.scale.set(1);
+    positionWinPopup();
   }
 
   function resizeSquare() {
@@ -899,6 +1065,7 @@ export async function createMinesGame(mount, opts = {}) {
     buildBoard();
     positionUI();
     centerBoard();
+    positionWinPopup();
   }
 
   function enterWaitingState(tile) {
@@ -945,5 +1112,6 @@ export async function createMinesGame(mount, opts = {}) {
     destroy,
     setSelectedCardIsDiamond,
     SetSelectedCardIsBomb,
+    showWinPopup: spawnWinPopup,
   };
 }
