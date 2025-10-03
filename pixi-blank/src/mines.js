@@ -166,9 +166,6 @@ export async function createMinesGame(mount, opts = {}) {
   const onChange = opts.onChange ?? (() => {});
 
   // Game setup and state. TODO: remove later
-  const titleText = label(`MINES ${GRID}×${GRID}`, 18, 0xffffff);
-  const statusText = label(`Safe picks: 0 / ${totalSafe}`, 14, 0xbfc7d5);
-  ui.addChild(titleText, statusText);
 
   // Public API for host integration
   function reset() {
@@ -177,7 +174,6 @@ export async function createMinesGame(mount, opts = {}) {
     hideWinPopup();
     bombPositions.clear();
     buildBoard();
-    positionUI();
     centerBoard();
     onChange(getState());
   }
@@ -250,19 +246,6 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   // Game functions
-  function label(text, size, color) {
-    return new Text({
-      text,
-      style: {
-        fill: color,
-        fontFamily,
-        fontSize: size,
-        fontWeight: "600",
-        align: "center",
-      },
-    });
-  }
-
   function createWinPopup() {
     const popupWidth = winPopupWidth;
     const popupHeight = winPopupHeight;
@@ -955,19 +938,13 @@ export async function createMinesGame(mount, opts = {}) {
 
           if (revealedByPlayer) {
             if (face === "bomb") {
-              statusText.text = "BOOM! Tap reset.";
-              statusText.style.fill = 0xffaaaa;
               revealAllTiles(tile);
               onGameOver();
             } else {
               revealedSafe += 1;
-              statusText.style.fill = 0xbfc7d5;
-              statusText.text = `Safe picks: ${revealedSafe} / ${totalSafe}`;
               if (revealedSafe >= totalSafe) {
                 gameOver = true;
                 revealAllTiles();
-                statusText.text = "You win! 🎉";
-                statusText.style.fill = 0xc7f9cc;
                 onWin();
               }
             }
@@ -1013,8 +990,6 @@ export async function createMinesGame(mount, opts = {}) {
     tiles = [];
     revealedSafe = 0;
     totalSafe = GRID * GRID - mines;
-    statusText.text = `Safe picks: 0 / ${totalSafe}`;
-    statusText.style.fill = 0xbfc7d5;
 
     const { tileSize, gap, boardSize } = layoutSizes();
     const startX = -boardSize / 2;
@@ -1043,14 +1018,6 @@ export async function createMinesGame(mount, opts = {}) {
     return { tileSize, gap, boardSize };
   }
 
-  function positionUI() {
-    const W = app.renderer.width;
-    titleText.anchor.set(0.5, 0);
-    statusText.anchor.set(0.5, 0);
-    titleText.position.set(W / 2, 6);
-    statusText.position.set(W / 2, 22);
-  }
-
   function centerBoard() {
     board.position.set(app.renderer.width / 2, app.renderer.height / 2 + 12);
     board.scale.set(1);
@@ -1063,7 +1030,6 @@ export async function createMinesGame(mount, opts = {}) {
     const size = Math.floor(Math.min(cw, ch));
     app.renderer.resize(size, size);
     buildBoard();
-    positionUI();
     centerBoard();
     positionWinPopup();
   }
@@ -1082,9 +1048,6 @@ export async function createMinesGame(mount, opts = {}) {
 
     const sy = getSkew(tile._wrap) || 0;
     tile._tiltDir = sy >= 0 ? +1 : -1;
-
-    statusText.text = "Awaiting card content...";
-    statusText.style.fill = 0xffe066;
 
     wiggleTile(tile);
     onChange(getState());
