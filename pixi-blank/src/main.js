@@ -1,7 +1,13 @@
 import { createMinesGame } from "./mines.js";
-import diamondTextureUrl from "../assets/Sprites/Diamond.png";
-import bombTextureUrl from "../assets/Sprites/Bomb.png";
-import explosionSheetUrl from "../assets/Sprites/Explosion_Spritesheet.png";
+import diamondTextureUrl from "../assets/sprites/Diamond.png";
+import bombTextureUrl from "../assets/sprites/Bomb.png";
+import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
+import tileTappedSoundUrl from "../assets/sounds/TileTapped.ogg";
+import tileSelectedSoundUrl from "../assets/sounds/TileSelected.ogg";
+import tileFlipSoundUrl from "../assets/sounds/TileFlip.ogg";
+import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.gg";
+import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
+import winSoundUrl from "../assets/sounds/Win.ogg";
 
 const game = await createMinesGame("#mines", {
   // Window visuals
@@ -58,6 +64,14 @@ const game = await createMinesGame("#mines", {
   explosionSheetFps: 24, // playback speed
   explosionSheetScaleFit: 0.8, // how much of the tile size it occupies
   explosionSheetOpacity: 0.75, // sprite's transparency
+
+  /* Sounds */
+  tileTappedSoundPath: tileTappedSoundUrl,
+  tileSelectedSoundPath: tileSelectedSoundUrl,
+  tileFlipSoundPath: tileFlipSoundUrl,
+  diamondRevealedSoundPath: diamondRevealedSoundUrl,
+  bombRevealedSoundPath: bombRevealedSoundUrl,
+  winSoundPath: winSoundUrl,
 
   /* Win pop-up */
   winPopupShowDuration: 260, // in ms
