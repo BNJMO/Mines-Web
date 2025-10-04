@@ -104,8 +104,10 @@ try {
 }
 
 // If Pixi rendered no canvas, switch to fallback DOM renderer
-await new Promise((r) => setTimeout(r, 250));
-if (!document.querySelector("#mines canvas")) {
+await new Promise((r) => setTimeout(r, 300));
+const hasCanvas = !!document.querySelector("#mines canvas");
+const tilesCount = typeof window !== 'undefined' ? (window.__mines_tiles || 0) : 0;
+if (!hasCanvas || tilesCount < 1) {
   const mount = document.querySelector("#mines");
   if (mount) mount.innerHTML = "";
   game = createFallbackMinesGame("#mines", { grid: opts.grid, mines: opts.mines });

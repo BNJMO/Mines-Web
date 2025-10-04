@@ -1068,6 +1068,8 @@ export async function createMinesGame(mount, opts = {}) {
           }
         },
       });
+    try { window.__mines_tiles = tiles.length; } catch {}
+
     }, flipDelay);
   }
 
