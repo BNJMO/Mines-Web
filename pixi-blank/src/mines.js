@@ -958,7 +958,10 @@ export async function createMinesGame(mount, opts = {}) {
       const size = tile._tileSize;
 
       tile._animating = true;
-      playSoundEffect("tileFlip");
+
+      if (revealedByPlayer) {
+        playSoundEffect("tileFlip");
+      }
 
       const startScaleY = wrap.scale.y;
       const startSkew = getSkew(wrap);

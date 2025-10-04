@@ -18,7 +18,7 @@ const game = await createMinesGame("#mines", {
   fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial",
 
   // Game setup
-  grid: 3,
+  grid: 5,
   mines: 5,
 
   // Visuals
@@ -87,7 +87,7 @@ const game = await createMinesGame("#mines", {
     // TODO: Add code here to either call "game.SetSelectedCardIsBomb();" or "game.setSelectedCardIsDiamond();"
 
     // Example : Basic Random selector
-    if (Math.random() < 0.005) {
+    if (Math.random() < 0.15) {
       game.SetSelectedCardIsBomb();
     } else {
       game.setSelectedCardIsDiamond();
