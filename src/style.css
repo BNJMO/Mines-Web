@@ -48,10 +48,18 @@ button:hover {
   border-color: #646cff;
 }
 
-/* Your existing panel style */
+/* Game panel container */
 .mines-panel {
-  width: 400px;      /* default size */
-  max-width: 100%;
-  aspect-ratio: 1/1; /* stay square */
+  /* Prefer responsive square that fits viewport */
+  width: min(90vw, 600px);
+  height: min(90vw, 600px);
+  aspect-ratio: 1 / 1; /* keep square in supporting browsers */
   position: relative;
+}
+
+/* Ensure the Pixi canvas fills the panel */
+#mines canvas {
+  width: 100%;
+  height: 100%;
+  display: block; /* avoid inline-gap */
 }
