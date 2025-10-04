@@ -1064,6 +1064,8 @@ export async function createMinesGame(mount, opts = {}) {
 
     dlog('buildBoard: tiles', { count: tiles.length, size: tileSize, gap });
 
+    try { debugOverlay(`Tiles: ${tiles.length}`); } catch {}
+
             onChange(getState());
           }
         },
@@ -1151,6 +1153,9 @@ export async function createMinesGame(mount, opts = {}) {
 
     const cw = Math.max(1, root.clientWidth || initialSize);
     const ch = Math.max(1, root.clientHeight || cw);
+    dlog('centerBoard', { x: board.position.x, y: board.position.y, rw: app.renderer.width, rh: app.renderer.height });
+    try { debugOverlay(`Tiles: ${tiles.length}`); } catch {}
+
     const size = Math.floor(Math.min(cw, ch));
     app.renderer.resize(size, size);
     buildBoard();
