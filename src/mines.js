@@ -10,7 +10,6 @@ import {
   Sprite,
 } from "pixi.js";
 import { sound } from "@pixi/sound";
-import { DropShadowFilter } from "@pixi/filter-drop-shadow";
 import Ease from "./ease.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -384,15 +383,6 @@ export async function createMinesGame(mount, opts = {}) {
 
     container.addChild(border, inner, multiplierText, amountRow);
 
-    container.filters = [
-      new DropShadowFilter({
-        distance: 6,
-        blur: 8,
-        alpha: 0.4,
-        color: 0x000000,
-      }),
-    ];
-
     return {
       container,
       multiplierText,
@@ -635,12 +625,6 @@ export async function createMinesGame(mount, opts = {}) {
     const startY = tile.y;
     const endY = on ? tile._baseY - 3 : tile._baseY;
 
-    const sh = tile._shadow;
-    const sDist0 = sh.distance,
-      sDist1 = on ? 4 : 2;
-    const sAlpha0 = sh.alpha,
-      sAlpha1 = on ? 0.5 : 0.35;
-
     const token = Symbol("hover");
     tile._hoverToken = token;
 
@@ -667,16 +651,12 @@ export async function createMinesGame(mount, opts = {}) {
         setSkew(tile._wrap, k);
 
         tile.y = startY + (endY - startY) * p;
-        sh.distance = sDist0 + (sDist1 - sDist0) * p;
-        sh.alpha = sAlpha0 + (sAlpha1 - sAlpha0) * p;
       },
       complete: () => {
         if (tile._hoverToken !== token) return;
         tile._wrap.scale.set(endScale);
         setSkew(tile._wrap, endSkew);
         tile.y = endY;
-        sh.distance = sDist1;
-        sh.alpha = sAlpha1;
       },
     });
   }
@@ -751,19 +731,6 @@ export async function createMinesGame(mount, opts = {}) {
     flipWrap.position.set(size / 2, size / 2);
     flipWrap.pivot.set(size / 2, size / 2);
 
-    const shadow = new DropShadowFilter({
-      color: 0x21ff00,
-      alpha: 1,
-      blur: 20,
-      distance: 32,
-      rotation: Math.PI / 3, // 60°
-    });
-    shadow.padding = 64;
-    card.filters = [shadow];
-
-    card.filters = [shadow];
-    card.filterArea = new Rectangle(-40, -40, size + 80, size + 80);
-
     const t = new Container();
     t.addChild(flipWrap);
 
@@ -781,7 +748,6 @@ export async function createMinesGame(mount, opts = {}) {
     t._tileSize = size;
     t._tileRadius = r;
     t._tilePad = pad;
-    t._shadow = shadow;
 
     // Spwan animation
     const s0 = 0.0001;
@@ -920,11 +886,6 @@ export async function createMinesGame(mount, opts = {}) {
       t.rotation = 0;
 
       t.y = t._baseY ?? t.y;
-
-      if (t._shadow) {
-        t._shadow.distance = 2;
-        t._shadow.alpha = 0.35;
-      }
     };
 
     clampOnce();
@@ -965,8 +926,6 @@ export async function createMinesGame(mount, opts = {}) {
 
       const startScaleY = wrap.scale.y;
       const startSkew = getSkew(wrap);
-      const startShadowDist = tile._shadow.distance;
-      const startShadowAlpha = tile._shadow.alpha;
 
       let swapped = false;
 
@@ -992,11 +951,6 @@ export async function createMinesGame(mount, opts = {}) {
           wrap.scale.x = widthFactor * popS;
           wrap.scale.y = startScaleY * popS;
           setSkew(wrap, skewOut);
-
-          tile._shadow.distance =
-            startShadowDist + (4 - startShadowDist) * elev;
-          tile._shadow.alpha =
-            startShadowAlpha + (0.55 - startShadowAlpha) * elev;
 
           if (!swapped && t >= 0.5) {
             swapped = true;
