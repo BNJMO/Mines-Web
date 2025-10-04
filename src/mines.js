@@ -169,30 +169,87 @@ export async function createMinesGame(mount, opts = {}) {
     root.style.width = `${initialSize}px`;
     root.style.maxWidth = "100%";
   }
+  // Debug helpers
+  function debugOverlay(msg) {
+    try {
+      let el = root.querySelector('.mines-debug');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'mines-debug';
+        Object.assign(el.style, {
+          position: 'absolute', left: '8px', top: '8px', zIndex: 9999,
+          background: 'rgba(0,0,0,0.6)', color: '#0f0', font: '12px monospace',
+          padding: '4px 6px', borderRadius: '4px', pointerEvents: 'none'
+        });
+        root.appendChild(el);
+      }
+      el.textContent = String(msg);
+    } catch {}
+  }
+  function dlog(label, data) {
+    try { console.log('[MINES]', label, data ?? ''); } catch {}
+  }
+
 
   let explosionFrames = null;
   let explosionFrameW = 0;
   let explosionFrameH = 0;
-  await loadExplosionFrames();
+  try {
+    dlog('load: explosion sheet start');
+    await loadExplosionFrames();
+    dlog('load: explosion sheet ok', { frameW: explosionFrameW, frameH: explosionFrameH });
+  } catch (e) {
+    console.error('loadExplosionFrames failed', e);
+    debugOverlay('Explosion sheet load failed');
+  }
 
   let diamondTexture = null;
-  await loadDiamondTexture();
+  try {
+    dlog('load: diamond start');
+    await loadDiamondTexture();
+    dlog('load: diamond ok');
+  } catch (e) {
+    console.error('loadDiamondTexture failed', e);
+    debugOverlay('Diamond texture load failed');
+  }
 
   let bombTexture = null;
-  await loadBombTexture();
+  try {
+    dlog('load: bomb start');
+    await loadBombTexture();
+    dlog('load: bomb ok');
+  } catch (e) {
+    console.error('loadBombTexture failed', e);
+    debugOverlay('Bomb texture load failed');
+  }
 
-  await loadSoundEffects();
+  try {
+    dlog('load: sounds start');
+    await loadSoundEffects();
+    dlog('load: sounds ok');
+  } catch (e) {
+    console.warn('loadSoundEffects failed (non-fatal)', e);
+    debugOverlay('Sounds failed (ok)');
+  }
 
   // PIXI app
   const app = new Application();
-  await app.init({
-    background: backgroundColor,
-    width: initialSize,
-    height: initialSize,
-    antialias: true,
-    resolution: Math.min(window.devicePixelRatio || 1, 2),
-  });
-  root.appendChild(app.canvas);
+  try {
+    await app.init({
+      background: backgroundColor,
+      width: initialSize,
+      height: initialSize,
+      antialias: true,
+      resolution: Math.min(window.devicePixelRatio || 1, 2),
+    });
+    root.appendChild(app.canvas);
+    dlog('pixi init ok', { w: initialSize, h: initialSize, dpr: window.devicePixelRatio || 1 });
+    debugOverlay('PIXI OK');
+  } catch (e) {
+    console.error('PIXI init failed', e);
+    debugOverlay('PIXI init failed');
+    throw e;
+  }
 
   // Game state
   const board = new Container();
@@ -1005,6 +1062,8 @@ export async function createMinesGame(mount, opts = {}) {
               }
             }
 
+    dlog('buildBoard: tiles', { count: tiles.length, size: tileSize, gap });
+
             onChange(getState());
           }
         },
@@ -1086,6 +1145,8 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function resizeSquare() {
+    dlog('resizeSquare', { cw: root.clientWidth, ch: root.clientHeight });
+
     const cw = Math.max(1, root.clientWidth || initialSize);
     const ch = Math.max(1, root.clientHeight || cw);
     const size = Math.floor(Math.min(cw, ch));
