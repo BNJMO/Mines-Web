@@ -25,10 +25,10 @@ import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
 
 const PALETTE = {
   appBg: 0x0b1a22, // page/canvas background
-  tileBase: 0x2e4150, // main tile face
-  tileInset: 0x2e4150, // inner inset
+  tileBase: 0xE3E552, // main tile face
+  tileInset: 0xE3E552, // inner inset
   tileStroke: 0x161616, // subtle outline
-  hover: 0x4c6c84, // hover
+  hover: 0xDFE0AC, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
   bombA: 0x721c26,
