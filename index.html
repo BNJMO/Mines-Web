@@ -1,52 +1,322 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Cora:wght@400;700&display=swap"
-    />
-    <title>Pixi Mines</title>
-    <link rel="stylesheet" href="/src/style.css" />
-  </head>
-  <body>
-    <div id="app">
-      <h1>Stevie.com</h1>
-      <h3>
-        This is just a a representation of the original website containing the
-        game.
-      </h3>
-      <button id="resetBtn">Reset</button>
-      <button id="easyBtn">3 mines</button>
-      <button id="hardBtn">10 mines</button>
-      <button id="diamondBtn">Reveal Diamond</button>
-      <button id="bombBtn">Reveal Bomb</button>
-      <h3>The next part is the game's panel.</h3>
-      <div id="mines" class="mines-panel"></div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mines Game - PixiJS Demo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💎</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0b1a22 0%, #1a2f3a 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #E3E552 0%, #FFD700 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 1rem;
+        }
+
+        .game-wrapper {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        #mines {
+            width: 600px;
+            height: 600px;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            background: rgba(11, 26, 34, 0.5);
+            border: 2px solid rgba(227, 229, 82, 0.3);
+        }
+
+        #mines canvas {
+            display: block;
+            border: 2px solid rgba(227, 229, 82, 0.5);
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 280px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-group h3 {
+            font-size: 1rem;
+            color: #E3E552;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex: 1;
+            min-width: 100px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #resetBtn {
+            background: linear-gradient(135deg, #E3E552 0%, #d4d647 100%);
+            color: #0b1a22;
+        }
+
+        #resetBtn:hover {
+            background: linear-gradient(135deg, #f0f25f 0%, #E3E552 100%);
+        }
+
+        #easyBtn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+
+        #hardBtn {
+            background: linear-gradient(135deg, #f44336 0%, #da190b 100%);
+            color: white;
+        }
+
+        #diamondBtn {
+            background: linear-gradient(135deg, #2196F3 0%, #0b7dda 100%);
+            color: white;
+        }
+
+        #bombBtn {
+            background: linear-gradient(135deg, #FF9800 0%, #e68900 100%);
+            color: white;
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-panel h3 {
+            color: #E3E552;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .info-panel ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-panel li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #a0a0a0;
+        }
+
+        .info-panel li:last-child {
+            border-bottom: none;
+        }
+
+        .info-panel strong {
+            color: #ffffff;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: #E3E552;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #mines {
+                width: 100%;
+                max-width: 500px;
+                height: auto;
+                aspect-ratio: 1;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .game-wrapper {
+                flex-direction: column;
+            }
+
+            .controls {
+                width: 100%;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 1.5rem;
+            color: #E3E552;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💎 Mines Game 💣</h1>
+            <p class="subtitle">Built with PixiJS - High Performance 2D WebGL Renderer</p>
+        </header>
+
+        <div class="game-wrapper">
+            <div class="game-container">
+                <div id="mines">
+                    <div class="loading">Loading Game</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <h3>Game Controls</h3>
+                    <button id="resetBtn">🔄 Reset Game</button>
+                </div>
+
+                <div class="control-group">
+                    <h3>Difficulty</h3>
+                    <div class="button-group">
+                        <button id="easyBtn">Easy (3 💣)</button>
+                        <button id="hardBtn">Hard (10 💣)</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Card Selection</h3>
+                    <div class="button-group">
+                        <button id="diamondBtn">💎 Diamond</button>
+                        <button id="bombBtn">💣 Bomb</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h3>How to Play</h3>
+            <ul>
+                <li><strong>Objective:</strong> Find all diamonds without hitting bombs!</li>
+                <li><strong>Click a tile:</strong> Select it and choose Diamond or Bomb</li>
+                <li><strong>Hover effects:</strong> Interactive 3D tilt animations</li>
+                <li><strong>Win condition:</strong> Reveal all safe tiles</li>
+                <li><strong>Lose condition:</strong> Hit a bomb</li>
+            </ul>
+        </div>
+
+        <footer>
+            <p>Powered by <a href="https://pixijs.com/" target="_blank">PixiJS v8</a> | 
+            High-performance 2D WebGL rendering engine</p>
+        </footer>
     </div>
-    <script type="module" src="/src/main.js"></script>
-    <script type="module">
-      // Import the functions you need from the SDKs you need
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
-      // TODO: Add SDKs for Firebase products that you want to use
-      // https://firebase.google.com/docs/web/setup#available-libraries
 
-      // Your web app's Firebase configuration
-      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-      const firebaseConfig = {
-        apiKey: "AIzaSyDrAEmluRFb3qRQcZS6u2ai-mFX5TBUYhY",
-        authDomain: "bnjmo-com.firebaseapp.com",
-        projectId: "bnjmo-com",
-        storageBucket: "bnjmo-com.appspot.com",
-        messagingSenderId: "276363566829",
-        appId: "1:276363566829:web:73679962b51c282f24f6e4",
-        measurementId: "G-00H1PSMRF7",
-      };
 
-      // Initialize Firebase
-      const app = initializeApp(firebaseConfig);
-      const analytics = getAnalytics(app);
-    </script>
-  </body>
+
+    <!-- Load the game module -->
+    <script type="module" src="./src/main.js"></script>
+</body>
 </html>
+

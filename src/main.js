@@ -10,7 +10,6 @@ import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.ogg";
 import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
 import winSoundUrl from "../assets/sounds/Win.ogg";
 import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
-import { createFallbackMinesGame } from "./fallback.js";
 
 
 let game;
@@ -97,21 +96,24 @@ const opts = {
   },
 };
 
-try {
-  game = await createMinesGame("#mines", opts);
-} catch (e) {
-  console.warn("Pixi init failed, will use fallback", e);
-}
-
-// If Pixi rendered no canvas, switch to fallback DOM renderer
-await new Promise((r) => setTimeout(r, 300));
-const hasCanvas = !!document.querySelector("#mines canvas");
-const tilesCount = typeof window !== 'undefined' ? (window.__mines_tiles || 0) : 0;
-if (!hasCanvas || tilesCount < 1) {
-  const mount = document.querySelector("#mines");
-  if (mount) mount.innerHTML = "";
-  game = createFallbackMinesGame("#mines", { grid: opts.grid, mines: opts.mines });
-}
+// Initialize game
+(async () => {
+  try {
+    game = await createMinesGame("#mines", opts);
+  } catch (e) {
+    console.error("Game initialization failed:", e);
+    const minesDiv = document.querySelector("#mines");
+    if (minesDiv) {
+      minesDiv.innerHTML = `
+        <div style="color: #f44336; padding: 20px; background: rgba(0,0,0,0.8); border-radius: 8px;">
+          <h3>❌ Game Failed to Initialize</h3>
+          <p><strong>Error:</strong> ${e.message}</p>
+          <p>Check console (F12) for full details.</p>
+        </div>
+      `;
+    }
+  }
+})();
 
 document
   .querySelector("#resetBtn")

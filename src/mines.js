@@ -9,7 +9,8 @@ import {
   Assets,
   Sprite,
 } from "pixi.js";
-import { sound } from "@pixi/sound";
+
+// Sound will be loaded inside createMinesGame function
 import Ease from "./ease.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -55,6 +56,26 @@ function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
 }
 
 export async function createMinesGame(mount, opts = {}) {
+  // Load sound library
+  let sound;
+  try {
+    const soundModule = await import("@pixi/sound");
+    sound = soundModule.sound;
+  } catch (e) {
+    console.warn("Sounds disabled:", e.message);
+    // Dummy sound object - must call callbacks to prevent hanging!
+    sound = {
+      add: (alias, options) => {
+        if (options && options.loaded) {
+          setTimeout(() => options.loaded(), 0);
+        }
+      },
+      play: () => {},
+      stop: () => {},
+      exists: () => false,
+    };
+  }
+
   // Options
   const GRID = opts.grid ?? 5;
   let mines = Math.max(1, Math.min(opts.mines ?? 5, GRID * GRID - 1));
@@ -242,7 +263,13 @@ export async function createMinesGame(mount, opts = {}) {
       antialias: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
     });
+
+    // Clear the loading message
+    root.innerHTML = '';
+
+    // Append canvas
     root.appendChild(app.canvas);
+
     dlog('pixi init ok', { w: initialSize, h: initialSize, dpr: window.devicePixelRatio || 1 });
     debugOverlay('PIXI OK');
   } catch (e) {
