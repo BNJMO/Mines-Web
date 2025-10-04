@@ -749,20 +749,24 @@ export async function createMinesGame(mount, opts = {}) {
     t._tileRadius = r;
     t._tilePad = pad;
 
-    // Spwan animation
-    const s0 = 0.0001;
-    flipWrap.scale.set(s0);
-    tween(app, {
-      duration: cardsSpawnDuration,
-      ease: (x) => Ease.easeOutBack(x),
-      update: (p) => {
-        const s = s0 + (1 - s0) * p;
-        flipWrap.scale.set(s);
-      },
-      complete: () => {
-        flipWrap.scale.set(1, 1);
-      },
-    });
+    // Spawn animation (guarded so tiles are visible even if ticker/RAF is paused)
+    if (cardsSpawnDuration > 0 && app.ticker) {
+      const s0 = 0.0001;
+      flipWrap.scale.set(s0);
+      tween(app, {
+        duration: cardsSpawnDuration,
+        ease: (x) => Ease.easeOutBack(x),
+        update: (p) => {
+          const s = s0 + (1 - s0) * p;
+          flipWrap.scale.set(s);
+        },
+        complete: () => {
+          flipWrap.scale.set(1, 1);
+        },
+      });
+    } else {
+      flipWrap.scale.set(1, 1);
+    }
 
     t.on("pointerover", () => {
       const untapedCount = tiles.filter((t) => !t.taped).length;
