@@ -18,7 +18,7 @@ import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
 import tileTappedSoundUrl from "../assets/sounds/TileTapped.ogg";
 import tileSelectedSoundUrl from "../assets/sounds/TileSelected.ogg";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.ogg";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.gg";
+import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.ogg";
 import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
 import winSoundUrl from "../assets/sounds/Win.ogg";
 

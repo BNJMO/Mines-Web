@@ -5,7 +5,7 @@ import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
 import tileTappedSoundUrl from "../assets/sounds/TileTapped.ogg";
 import tileSelectedSoundUrl from "../assets/sounds/TileSelected.ogg";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.ogg";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.gg";
+import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.ogg";
 import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
 import winSoundUrl from "../assets/sounds/Win.ogg";
 
@@ -16,7 +16,7 @@ const game = await createMinesGame("#mines", {
   fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial",
 
   // Game setup
-  grid: 3,
+  grid: 5,
   mines: 5,
 
   // Visuals
@@ -83,7 +83,7 @@ const game = await createMinesGame("#mines", {
     // TODO: Add code here to either call "game.SetSelectedCardIsBomb();" or "game.setSelectedCardIsDiamond();"
 
     // Example : Basic Random selector
-    if (Math.random() < 0.005) {
+    if (Math.random() < 0.15) {
       game.SetSelectedCardIsBomb();
     } else {
       game.setSelectedCardIsDiamond();
