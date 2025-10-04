@@ -63,3 +63,31 @@ button:hover {
   height: 100%;
   display: block; /* avoid inline-gap */
 }
+
+
+/* Fallback DOM renderer styles */
+.fallback-board {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(var(--grid, 5), 1fr);
+  grid-template-rows: repeat(var(--grid, 5), 1fr);
+  gap: 10px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.fallback-tile {
+  background: #E3E552; /* matches PIXI PALETTE.tileBase */
+  border-radius: 12px;
+  border: 2px solid rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111;
+  font-size: clamp(18px, 6vw, 42px);
+  user-select: none;
+  transition: transform 120ms ease, filter 160ms ease;
+}
+.fallback-tile:hover { transform: translateY(-2px); filter: brightness(0.98); }
+.fallback-tile.revealed.bomb { background: #5a0f16; color: #fff; }
+.fallback-tile.revealed.diamond { background: #163d2b; color: #fff; }
