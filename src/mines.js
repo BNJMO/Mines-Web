@@ -90,7 +90,7 @@ export async function createMinesGame(mount, opts = {}) {
   const bombTexturePath = opts.bombTexturePath ?? bombTextureUrl;
   const iconSizePercentage = opts.iconSizePercentage ?? 0.7;
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
-  const cardsSpawnDuration = opts.cardsSpawnDuration ?? 300;
+  const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
 
   // Animation Options
@@ -791,16 +791,16 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function createTile(row, col, size) {
-    const r = Math.min(18, size * 0.18);
+    const raduis = Math.min(18, size * 0.18);
     const pad = Math.max(7, Math.floor(size * 0.08));
 
     const card = new Graphics()
-      .roundRect(0, 0, size, size, r)
+      .roundRect(0, 0, size, size, raduis)
       .fill(PALETTE.tileBase)
       .stroke({ color: PALETTE.tileStroke, width: 5, alpha: 0.9 });
 
     const inset = new Graphics()
-      .roundRect(pad, pad, size - pad * 2, size - pad * 2, Math.max(8, r - 6))
+      .roundRect(pad, pad, size - pad * 2, size - pad * 2, Math.max(8, raduis - 6))
       .fill(PALETTE.tileInset);
 
     const icon = new Sprite();
@@ -830,11 +830,23 @@ export async function createMinesGame(mount, opts = {}) {
     t._inset = inset;
     t._icon = icon;
     t._tileSize = size;
-    t._tileRadius = r;
+    t._tileRadius = raduis;
     t._tilePad = pad;
 
-    // Ensure tiles are visible immediately (spawn animation disabled for reliability)
-    flipWrap.scale.set(1, 1);
+    // Spwan animation
+    const s0 = 0.0001;
+    flipWrap.scale.set(s0);
+    tween(app, {
+      duration: cardsSpawnDuration,
+      ease: (x) => Ease.easeOutBack(x),
+      update: (p) => {
+        const s = s0 + (1 - s0) * p;
+        flipWrap.scale.set(s);
+      },
+      complete: () => {
+        flipWrap.scale.set(1, 1);
+      },
+    });
 
     t.on("pointerover", () => {
       const untapedCount = tiles.filter((t) => !t.taped).length;

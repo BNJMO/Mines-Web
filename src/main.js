@@ -28,7 +28,7 @@ const opts = {
   bombTexturePath: bombTextureUrl,
   iconSizePercentage: 0.7,
   iconRevealedSizeFactor: 0.85,
-  cardsSpawnDuration: 300,
+  cardsSpawnDuration: 350,
   revealAllIntervalDelay: 40,
 
   // Animations feel
