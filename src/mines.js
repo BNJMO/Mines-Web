@@ -25,21 +25,21 @@ import winSoundUrl from "../assets/sounds/Win.ogg";
 import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
 
 const PALETTE = {
-  appBg: 0x0b1a22, // page/canvas background
-  tileBase: 0xE3E552, // main tile face
-  tileInset: 0xE3E552, // inner inset
+  appBg: 0x020401, // page/canvas background
+  tileBase: 0x363636, // main tile face
+  tileInset: 0x363636, // inner inset
   tileStroke: 0x161616, // subtle outline
-  hover: 0xDFE0AC, // hover
+  hover: 0xFBFF43, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
+  safeA: 0x00C130, // outer
+  safeAUnrevealed: 0x081610,
+  safeB: 0x364B36, // inner
+  safeBUnrevealed: 0x081c13,
   bombA: 0x721c26,
   bombAUnrevealed: 0x26090c,
   bombB: 0x5a0f16,
-  bombBUnrevealed: 0x2d070b,
-  safeA: 0x163d2b,
-  safeAUnrevealed: 0x081610,
-  safeB: 0x103526,
-  safeBUnrevealed: 0x081c13,
+  bombBUnrevealed: 0x28060A,
 };
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
@@ -797,7 +797,7 @@ export async function createMinesGame(mount, opts = {}) {
     const card = new Graphics()
       .roundRect(0, 0, size, size, raduis)
       .fill(PALETTE.tileBase)
-      .stroke({ color: PALETTE.tileStroke, width: 5, alpha: 0.9 });
+      .stroke({ color: PALETTE.tileStroke, width: 0, alpha: 0.9 });
 
     const inset = new Graphics()
       .roundRect(pad, pad, size - pad * 2, size - pad * 2, Math.max(8, raduis - 6))
@@ -1066,7 +1066,6 @@ export async function createMinesGame(mount, opts = {}) {
             } else {
               // Diamond
               icon.texture = diamondTexture;
-
               const facePalette = revealedByPlayer
                 ? PALETTE.safeA
                 : PALETTE.safeAUnrevealed;

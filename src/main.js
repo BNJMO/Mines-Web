@@ -27,7 +27,7 @@ const opts = {
   diamondTexturePath: diamondTextureUrl,
   bombTexturePath: bombTextureUrl,
   iconSizePercentage: 0.7,
-  iconRevealedSizeFactor: 0.85,
+  iconRevealedSizeFactor: 0.75,
   cardsSpawnDuration: 350,
   revealAllIntervalDelay: 40,
 
