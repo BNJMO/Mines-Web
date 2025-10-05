@@ -1,19 +1,29 @@
 {
-  "name": "pixi-blank",
-  "private": true,
-  "version": "0.0.0",
+  "name": "mines-web",
+  "version": "1.0.0",
+  "description": "Mines game built with PixiJS",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^7.1.7"
+    "preview": "vite preview",
+    "serve": "node server.js",
+    "start": "npm run serve"
   },
   "dependencies": {
-    "@pixi/sound": "^6.0.1",
-    "firebase": "^12.3.0",
-    "pixi.js": "^8.13.2"
-  }
+    "pixi.js": "^8.5.2",
+    "@pixi/sound": "^6.0.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  },
+  "keywords": [
+    "pixijs",
+    "game",
+    "mines",
+    "webgl"
+  ],
+  "author": "",
+  "license": "MIT"
 }
+
