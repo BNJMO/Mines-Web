@@ -29,20 +29,21 @@ const PALETTE = {
   appBg: 0x020401, // page/canvas background
   tileBase: 0x363636, // main tile face
   tileInset: 0x363636, // inner inset
-  tileStroke: 0x161616, // subtle outline
+  tileStroke: 0x232323, // subtle outline
+  tileStrokeFlipped: 0x0F0F0F, // subtle outline
   tileElevationBase: 0x2f2f2f, // visible lip beneath tile face
   tileElevationShadow: 0x000000, // soft drop shadow
-  hover: 0xFBFF43, // hover
+  hover: 0xfbff43, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x00C130, // outer
+  safeA: 0x3E563E, // outer
   safeAUnrevealed: 0x081610,
-  safeB: 0x364B36, // inner
+  safeB: 0x364b36, // inner
   safeBUnrevealed: 0x081c13,
   bombA: 0x721c26,
   bombAUnrevealed: 0x26090c,
   bombB: 0x5a0f16,
-  bombBUnrevealed: 0x28060A,
+  bombBUnrevealed: 0x28060a,
 };
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
@@ -95,6 +96,7 @@ export async function createMinesGame(mount, opts = {}) {
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
+  const strokeWidth = opts.strokeWidth ?? 1;
 
   // Animation Options
   /* Card Hover */
@@ -196,14 +198,21 @@ export async function createMinesGame(mount, opts = {}) {
   // Debug helpers
   function debugOverlay(msg) {
     try {
-      let el = root.querySelector('.mines-debug');
+      let el = root.querySelector(".mines-debug");
       if (!el) {
-        el = document.createElement('div');
-        el.className = 'mines-debug';
+        el = document.createElement("div");
+        el.className = "mines-debug";
         Object.assign(el.style, {
-          position: 'absolute', left: '8px', top: '8px', zIndex: 9999,
-          background: 'rgba(0,0,0,0.6)', color: '#0f0', font: '12px monospace',
-          padding: '4px 6px', borderRadius: '4px', pointerEvents: 'none'
+          position: "absolute",
+          left: "8px",
+          top: "8px",
+          zIndex: 9999,
+          background: "rgba(0,0,0,0.6)",
+          color: "#0f0",
+          font: "12px monospace",
+          padding: "4px 6px",
+          borderRadius: "4px",
+          pointerEvents: "none",
         });
         root.appendChild(el);
       }
@@ -211,49 +220,53 @@ export async function createMinesGame(mount, opts = {}) {
     } catch {}
   }
   function dlog(label, data) {
-    try { console.log('[MINES]', label, data ?? ''); } catch {}
+    try {
+      console.log("[MINES]", label, data ?? "");
+    } catch {}
   }
-
 
   let explosionFrames = null;
   let explosionFrameW = 0;
   let explosionFrameH = 0;
   try {
-    dlog('load: explosion sheet start');
+    dlog("load: explosion sheet start");
     await loadExplosionFrames();
-    dlog('load: explosion sheet ok', { frameW: explosionFrameW, frameH: explosionFrameH });
+    dlog("load: explosion sheet ok", {
+      frameW: explosionFrameW,
+      frameH: explosionFrameH,
+    });
   } catch (e) {
-    console.error('loadExplosionFrames failed', e);
-    debugOverlay('Explosion sheet load failed');
+    console.error("loadExplosionFrames failed", e);
+    debugOverlay("Explosion sheet load failed");
   }
 
   let diamondTexture = null;
   try {
-    dlog('load: diamond start');
+    dlog("load: diamond start");
     await loadDiamondTexture();
-    dlog('load: diamond ok');
+    dlog("load: diamond ok");
   } catch (e) {
-    console.error('loadDiamondTexture failed', e);
-    debugOverlay('Diamond texture load failed');
+    console.error("loadDiamondTexture failed", e);
+    debugOverlay("Diamond texture load failed");
   }
 
   let bombTexture = null;
   try {
-    dlog('load: bomb start');
+    dlog("load: bomb start");
     await loadBombTexture();
-    dlog('load: bomb ok');
+    dlog("load: bomb ok");
   } catch (e) {
-    console.error('loadBombTexture failed', e);
-    debugOverlay('Bomb texture load failed');
+    console.error("loadBombTexture failed", e);
+    debugOverlay("Bomb texture load failed");
   }
 
   try {
-    dlog('load: sounds start');
+    dlog("load: sounds start");
     await loadSoundEffects();
-    dlog('load: sounds ok');
+    dlog("load: sounds ok");
   } catch (e) {
-    console.warn('loadSoundEffects failed (non-fatal)', e);
-    debugOverlay('Sounds failed (ok)');
+    console.warn("loadSoundEffects failed (non-fatal)", e);
+    debugOverlay("Sounds failed (ok)");
   }
 
   // PIXI app
@@ -268,16 +281,20 @@ export async function createMinesGame(mount, opts = {}) {
     });
 
     // Clear the loading message
-    root.innerHTML = '';
+    root.innerHTML = "";
 
     // Append canvas
     root.appendChild(app.canvas);
 
-    dlog('pixi init ok', { w: initialSize, h: initialSize, dpr: window.devicePixelRatio || 1 });
-    debugOverlay('PIXI OK');
+    dlog("pixi init ok", {
+      w: initialSize,
+      h: initialSize,
+      dpr: window.devicePixelRatio || 1,
+    });
+    debugOverlay("PIXI OK");
   } catch (e) {
-    console.error('PIXI init failed', e);
-    debugOverlay('PIXI init failed');
+    console.error("PIXI init failed", e);
+    debugOverlay("PIXI init failed");
     throw e;
   }
 
@@ -818,10 +835,16 @@ export async function createMinesGame(mount, opts = {}) {
     const card = new Graphics()
       .roundRect(0, 0, size, size, raduis)
       .fill(PALETTE.tileBase)
-      .stroke({ color: PALETTE.tileStroke, width: 0, alpha: 0.9 });
+      .stroke({ color: PALETTE.tileStroke, width: strokeWidth, alpha: 0.9 });
 
     const inset = new Graphics()
-      .roundRect(pad, pad, size - pad * 2, size - pad * 2, Math.max(8, raduis - 6))
+      .roundRect(
+        pad,
+        pad,
+        size - pad * 2,
+        size - pad * 2,
+        Math.max(8, raduis - 6)
+      )
       .fill(PALETTE.tileInset);
 
     const icon = new Sprite();
@@ -954,7 +977,11 @@ export async function createMinesGame(mount, opts = {}) {
   function flipFace(graphic, w, h, r, color, stroke = true) {
     graphic.clear().roundRect(0, 0, w, h, r).fill(color);
     if (stroke) {
-      graphic.stroke({ color: PALETTE.tileStroke, width: 2, alpha: 0.9 });
+      graphic.stroke({
+        color: PALETTE.tileStrokeFlipped,
+        width: strokeWidth,
+        alpha: 0.5,
+      });
     }
   }
 
@@ -1021,7 +1048,7 @@ export async function createMinesGame(mount, opts = {}) {
       const icon = tile._icon;
       const radius = tile._tileRadius;
       const pad = tile._tilePad;
-      const size = tile._tileSize;
+      const tileSize = tile._tileSize;
 
       tile._animating = true;
 
@@ -1073,11 +1100,11 @@ export async function createMinesGame(mount, opts = {}) {
               const facePalette = revealedByPlayer
                 ? PALETTE.bombA
                 : PALETTE.bombAUnrevealed;
-              flipFace(card, size, size, radius, facePalette);
+              flipFace(card, tileSize, tileSize, radius, facePalette);
               const insetPalette = revealedByPlayer
                 ? PALETTE.bombB
                 : PALETTE.bombBUnrevealed;
-              flipInset(inset, size, size, radius, pad, insetPalette);
+              flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
 
               if (revealedByPlayer) {
                 spawnExplosionSheetOnTile(tile);
@@ -1090,11 +1117,11 @@ export async function createMinesGame(mount, opts = {}) {
               const facePalette = revealedByPlayer
                 ? PALETTE.safeA
                 : PALETTE.safeAUnrevealed;
-              flipFace(card, size, size, radius, facePalette);
+              flipFace(card, tileSize, tileSize, radius, facePalette);
               const insetPalette = revealedByPlayer
                 ? PALETTE.safeB
                 : PALETTE.safeBUnrevealed;
-              flipInset(inset, size, size, radius, pad, insetPalette);
+              flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
 
               if (revealedByPlayer) {
                 playSoundEffect("diamondRevealed");
@@ -1121,16 +1148,23 @@ export async function createMinesGame(mount, opts = {}) {
               }
             }
 
-    dlog('buildBoard: tiles', { count: tiles.length, size: tileSize, gap });
+            // dlog("buildBoard: tiles", {
+            //   count: tiles.length,
+            //   size: tileSize,
+            //   gap,
+            // });
 
-    try { debugOverlay(`Tiles: ${tiles.length}`); } catch {}
+            try {
+              debugOverlay(`Tiles: ${tiles.length}`);
+            } catch {}
 
             onChange(getState());
           }
         },
       });
-    try { window.__mines_tiles = tiles.length; } catch {}
-
+      try {
+        window.__mines_tiles = tiles.length;
+      } catch {}
     }, flipDelay);
   }
 
@@ -1208,12 +1242,19 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function resizeSquare() {
-    dlog('resizeSquare', { cw: root.clientWidth, ch: root.clientHeight });
+    dlog("resizeSquare", { cw: root.clientWidth, ch: root.clientHeight });
 
     const cw = Math.max(1, root.clientWidth || initialSize);
     const ch = Math.max(1, root.clientHeight || cw);
-    dlog('centerBoard', { x: board.position.x, y: board.position.y, rw: app.renderer.width, rh: app.renderer.height });
-    try { debugOverlay(`Tiles: ${tiles.length}`); } catch {}
+    dlog("centerBoard", {
+      x: board.position.x,
+      y: board.position.y,
+      rw: app.renderer.width,
+      rh: app.renderer.height,
+    });
+    try {
+      debugOverlay(`Tiles: ${tiles.length}`);
+    } catch {}
 
     const size = Math.floor(Math.min(cw, ch));
     app.renderer.resize(size, size);
