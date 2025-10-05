@@ -8,6 +8,7 @@ import {
   AnimatedSprite,
   Assets,
   Sprite,
+  BlurFilter,
 } from "pixi.js";
 
 // Sound will be loaded inside createMinesGame function
@@ -29,6 +30,8 @@ const PALETTE = {
   tileBase: 0x363636, // main tile face
   tileInset: 0x363636, // inner inset
   tileStroke: 0x161616, // subtle outline
+  tileElevationBase: 0x2f2f2f, // visible lip beneath tile face
+  tileElevationShadow: 0x000000, // soft drop shadow
   hover: 0xFBFF43, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
@@ -793,6 +796,24 @@ export async function createMinesGame(mount, opts = {}) {
   function createTile(row, col, size) {
     const raduis = Math.min(18, size * 0.18);
     const pad = Math.max(7, Math.floor(size * 0.08));
+    const elevationOffset = Math.max(4, Math.floor(size * 0.07));
+    const lipOffset = Math.max(2, Math.floor(size * 0.04));
+    const shadowBlur = Math.max(4, Math.floor(size * 0.09));
+
+    const elevationShadow = new Graphics()
+      .roundRect(0, 0, size, size, raduis)
+      .fill(PALETTE.tileElevationShadow);
+    elevationShadow.y = elevationOffset;
+    elevationShadow.alpha = 0.32;
+    const shadowFilter = new BlurFilter(shadowBlur);
+    shadowFilter.quality = 2;
+    elevationShadow.filters = [shadowFilter];
+
+    const elevationLip = new Graphics()
+      .roundRect(0, 0, size, size, raduis)
+      .fill(PALETTE.tileElevationBase);
+    elevationLip.y = lipOffset;
+    elevationLip.alpha = 0.85;
 
     const card = new Graphics()
       .roundRect(0, 0, size, size, raduis)
@@ -811,7 +832,7 @@ export async function createMinesGame(mount, opts = {}) {
 
     // Centered wrapper – flip happens here
     const flipWrap = new Container();
-    flipWrap.addChild(card, inset, icon);
+    flipWrap.addChild(elevationShadow, elevationLip, card, inset, icon);
     flipWrap.position.set(size / 2, size / 2);
     flipWrap.pivot.set(size / 2, size / 2);
 
