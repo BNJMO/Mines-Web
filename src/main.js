@@ -1,4 +1,5 @@
 import { createMinesGame } from "./mines.js";
+import { initControlPanel } from "./controlPanel.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
@@ -13,6 +14,7 @@ import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
 
 
 let game;
+initControlPanel();
 const opts = {
   // Window visuals
   size: 600,
